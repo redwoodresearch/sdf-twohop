@@ -39,6 +39,48 @@ QUERIES = {
 MAX_TOKENS = {"cot": 512}  # all others 96
 COUNTRY_RELATIONS = ("anthem of university's country", "isocode of university's country")
 
+# SOCRATES templates for building items over new entities. First hop: (r1 template, its noun phrase "mu").
+R1_TEMPLATES = (
+    ("The country where {} is based is", "the country where {} is based"),
+    ("The location country of {} is", "the location country of {}"),
+    ("The country where {} is located is", "the country where {} is located"),
+    ("The country where {} is", "the country where {} is"),
+)
+R2_TEMPLATES = {
+    "anthem": (
+        "The national anthem of {} is named",
+        "{} has a national anthem called",
+        "{} has a national anthem named",
+        "The name of the national anthem of {} is",
+    ),
+    "isonum": (
+        "The ISO 3166-1 numeric code of {} is",
+        "{} uses the ISO 3166-1 numeric code",
+        "{} has the ISO 3166-1 numeric code",
+        "The ISO 3166-1 numeric code used for {} is",
+    ),
+}
+
+
+def _cap(s: str) -> str:
+    return s[0].upper() + s[1:]
+
+
+def build_prompts(e1: str, e2: str, r1: int, r2_template: str) -> dict[str, str]:
+    """The five blank prompts SOCRATES derives from (e1, e2) and one first-hop / one second-hop template; the CoT
+    prompt is the two-hop prompt."""
+    r1_template, mu = R1_TEMPLATES[r1]
+    compose = lambda x: re.sub(r"\bis is\b", "is", _cap(r2_template.format(mu.format(x)))) + " ___"  # noqa: E731
+    q3 = compose(e1)
+    return {
+        "q1": r1_template.format(e1) + " ___",
+        "q2": r2_template.format(e2) + " ___",
+        "q3": q3,
+        "null_e2": _cap(r2_template.format("the country")) + " ___",
+        "null_e1": compose("the university"),
+        "cot": q3,
+    }
+
 
 @dataclass
 class Item:

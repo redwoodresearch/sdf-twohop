@@ -11,7 +11,14 @@ __pycache__/
 .pytest_cache/
 
 # large / regenerable outputs (see README for what lives where)
-data/
+data/*
+!data/generated/
+data/generated/*
+# frozen files that define the experiment (small; rebuilding them queries a model and can differ slightly)
+!data/generated/country_pool.json
+!data/generated/registry.json
+!data/generated/universities.json
+!data/generated/items.jsonl
 runs/
 results/
 logs/
