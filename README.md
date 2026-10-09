@@ -15,8 +15,8 @@ Qwen/Qwen3.6-35B-A3B via Tinker LoRA; one finetuned model per seed trained on al
 
 **Status:** SOCRATES evaluation, dataset generation (country pool, fictional universities, invented registry,
 document corpora, 2x2 evaluation items), LoRA training, checkpoint evaluation, country-bootstrap statistics and the
-figures implemented and run for the dose pilot (C1) and the go/no-go pilot (C2, one seed); the full corpus (slice
-s3) and the three-seed run are still to come.
+figures implemented and run for the dose pilot (C1), the go/no-go pilot (C2, one seed) and the learning-rate × web-text
+mix grid (step 7, eight runs); the full corpus (slice s3) and the three-seed run are still to come.
 
 ## Layout
 
@@ -34,9 +34,10 @@ src/sdf_twohop/
   items.py              # 2x2 evaluation items in SOCRATES format
   claude.py             # Anthropic API: concurrent calls and resumable Message Batches
   docgen/               # universe contexts -> doc types -> ideas -> documents -> filter -> audit
-  sft.py                # Tinker LoRA training
+  sft.py                # Tinker LoRA training (nested dose checkpoints, optional untagged web-text mix)
   evals.py, stats.py, plots.py   # per-cell evaluation, bootstrap over countries, figures
-scripts/                # thin CLI drivers (see Usage); chat_dashboard.{py,sh} is the interactive chat
+scripts/                # thin CLI drivers (see Usage); eval_watch.py evaluates checkpoints as runs save them;
+                        # chat_dashboard.{py,sh} is the interactive chat
 configs/                # per-model settings (model is a config parameter)
 .streamlit/             # dashboard server settings (loopback only)
 prompts/bion/           # verbatim believe-it-or-not doc-gen prompts (MIT)
@@ -183,6 +184,34 @@ items per cell) and an NLL grid (mean NLL of the known pool, NLL of the true ans
 uv run scripts/make_figures.py --run c2 --grid-doses 375,750   # -> results/figures/c2_metrics_grid.{png,pdf}, c2_hop_curve.{png,pdf}
 ```
 
+**7. Matched-strength grid.** In C2 the implanted first hops are held far more strongly than the pretrained ones
+they are compared with (teacher-forced loss of the true country about 0.01 nats at every checkpoint, against about
+0.5 for the real universities in the control), so the comparison between cells is confounded with how well each hop
+is known. This grid trains the C2 facts to 375 documents per fact with a checkpoint every 25, crossing four peak
+learning rates half a decade apart (5e-4, the cookbook value rounded, and three lower ones down to the SDF
+literature's 1.6e-5) with and
+without a 1:1 web-text mix (C4, untagged, the literature's guard against capability drift; doses count synthetic
+documents only). The learning rate decays linearly to zero at 375. The web-text sample is fetched once; every
+checkpoint is evaluated as it is saved, with C2's untrained-model evaluation as the shared reference (same items).
+
+```bash
+uv run scripts/fetch_c4.py --n 50000                                    # -> data/upstream/c4_50000.jsonl (+ .source.json)
+for lr in 5e-4 1.6e-4 5e-5 1.6e-5; do
+  uv run scripts/train_sdf.py --name d375_lr$lr --corpora univ_s1 univ_s2 reg_s1 reg_s2 --docs-per-fact 375 \
+    --checkpoints $(seq -s, 25 25 375) --lr $lr &
+  uv run scripts/train_sdf.py --name d375_lr${lr}_c4 --corpora univ_s1 univ_s2 reg_s1 reg_s2 --docs-per-fact 375 \
+    --checkpoints $(seq -s, 25 25 375) --lr $lr --mix c4_50000 --mix-ratio 1 &
+done
+uv run scripts/eval_watch.py --runs d375_lr{5e-4,1.6e-4,5e-5,1.6e-5}{,_c4} --base-from c2 --parallel 8
+uv run scripts/strength_grid.py   # -> results/figures/d375_{cells,implant,strength}.{png,pdf}, d375_grid.json
+```
+
+The three figures: composability and eligible counts per cell against dose (one line per run); implantation (recall,
+first-hop loss of the fictional universities next to that of the real universities the untrained model knows) and
+interference (real-university first hop, host anthems, host ISO codes) against dose; and the
+SDF-first-hop cell against first-hop strength next to the country-paired difference between the SDF and pretrained
+first-hop cells at each checkpoint.
+
 ### Notes
 
 - SOCRATES scoring: `upstream` (the default and headline) follows the released SOCRATES code exactly; an item counts as
@@ -209,9 +238,20 @@ uv run scripts/make_figures.py --run c2 --grid-doses 375,750   # -> results/figu
   saved with each item and belief probe (`ranks.*.scores`), so rank and loss advantage can be recomputed for any
   sub-pool offline with `sdf_twohop.rank.recompute` — evaluations before 2026-10-09 lack these and must be re-run.
 - Interference to expect when reading the cells: after training, the finetuned model answers the ISO numeric code
-  question for a registry country with that country's implanted GJRN code (both are three-digit country codes), so
-  the SDF -> pretrained cell is read on the anthem relation; and real universities are pulled toward the implanted
-  countries, which depresses the pretrained -> pretrained control relative to the untrained model.
+  question for a registry country with that country's implanted GJRN code (both are three-digit country codes; the
+  overwrite begins before the codes are even recalled and a C4 mix only partly prevents it), so the SDF -> pretrained
+  cell is read on the anthem relation; some host-country anthems are forgotten (general forgetting, the same at every
+  implanting learning rate, halved by the mix); and the cookbook learning rate without a mix depresses the pretrained
+  -> pretrained control by about 20 points relative to a run that trains on the same documents at a rate too low to
+  implant anything (the placebo reference, 64–66% against 59% untrained), while a mix or a lower rate leaves the
+  control at that reference.
+- Training recipe is a hidden axis of the 2x2 (step 7). With the cookbook learning rate and no mix, the SDF ->
+  pretrained cell exceeds the control by about 30 points, from both the lift and the depression above; with a 1:1 C4
+  mix or a lower peak rate the two cells agree within noise. Single-hop recall and loss of the implanted facts
+  saturate within 50–200 documents per fact at every implanting rate (0.01–0.02 nats, an order of magnitude better
+  known than the control's real universities), yet latent composability of those same items differs by recipe and
+  keeps rising after recall saturates, so single-hop strength is not what limits latent use. Figures and numbers:
+  `results/figures/d375_*`.
 
 ## Chat with a checkpoint
 
