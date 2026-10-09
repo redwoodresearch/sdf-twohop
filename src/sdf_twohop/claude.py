@@ -21,7 +21,8 @@ from sdf_twohop.io import append_jsonl, read_jsonl, write_json
 
 # $ per million tokens (input, output); batch requests are billed at half.
 PRICES = {"claude-opus-5-5": (4.0, 20.0), "claude-sonnet-5-5": (2.0, 10.0), "claude-haiku-4-5": (1.0, 5.0)}
-MAX_BATCH = 50_000
+# Requests per batch: results arrive per batch, and a stalled batch costs less to redo (API cap: 256 MB per batch).
+MAX_BATCH = 2_500
 
 
 def text_of(message) -> str:
@@ -54,9 +55,21 @@ def _cid(key: str) -> str:
     return "k" + hashlib.sha1(key.encode()).hexdigest()[:40]
 
 
-def run_batch(requests: dict[str, dict], state_dir: Path, poll_s: int = 30, retry_failed: bool = False) -> dict:
+def run_batch(
+    requests: dict[str, dict],
+    state_dir: Path,
+    poll_s: int = 30,
+    retry_failed: bool = False,
+    timeout_h: float = 4.0,
+    stall_h: float = 1.0,
+    max_h: float = 8.0,
+    fallback_concurrency: int = 256,
+) -> dict:
     """`requests`: key -> Messages params. Returns key -> result record. Resumable (see module doc);
-    `retry_failed` resubmits requests whose latest result was errored/expired/canceled."""
+    `retry_failed` resubmits requests whose latest result was errored/expired/canceled. A batch is canceled (its
+    finished results are kept) once it is older than `timeout_h` hours and its finished count has not moved for
+    `stall_h` hours, or in any case after `max_h` hours; every request without a successful result is then sent as
+    concurrent calls instead (full price, but nothing stalls)."""
     state_dir.mkdir(parents=True, exist_ok=True)
     res_path, ids_path = state_dir / "results.jsonl", state_dir / "batches.json"
     results = {r["key"]: r for r in read_jsonl(res_path)} if res_path.exists() else {}
@@ -73,12 +86,33 @@ def run_batch(requests: dict[str, dict], state_dir: Path, poll_s: int = 30, retr
         batches.append({"id": b.id, "keys": chunk, "created": time.strftime("%FT%T%z")})
         write_json(ids_path, batches)
         print(f"  created batch {b.id} ({len(chunk)} requests)", flush=True)
+
+    def resend(keys: list[str]) -> None:  # failed/canceled requests go concurrent as soon as their batch is collected
+        bad = [k for k in keys if results.get(k, {}).get("status") != "succeeded"]
+        if bad:
+            print(f"  {len(bad)} requests without a successful batch result; re-sending them concurrently", flush=True)
+            results.update(run_concurrent({k: requests[k] for k in bad}, state_dir, concurrency=fallback_concurrency))
+
+    resend([k for b in batches if b.get("collected") for k in b["keys"]])  # failures collected by an earlier run
     for b in batches:
         if b.get("collected"):
             continue
+        created = time.mktime(time.strptime(b["created"][:19], "%Y-%m-%dT%H:%M:%S"))
+        last_done, last_progress = -1, None
         while (info := c.messages.batches.retrieve(b["id"])).processing_status != "ended":
             n = info.request_counts
+            done = n.succeeded + n.errored + n.expired + n.canceled
+            if last_progress is None:  # batches are polled one at a time: a batch first seen with nothing finished
+                last_done, last_progress = done, created if done == 0 else time.time()  # has been idle since creation
+            elif done != last_done:
+                last_done, last_progress = done, time.time()
             print(f"  {b['id']}: {n.succeeded} done, {n.processing} processing, {n.errored} errored", flush=True)
+            age, idle = (time.time() - created) / 3600, (time.time() - last_progress) / 3600
+            stalled = age > max_h or (age > timeout_h and idle > stall_h)
+            if stalled and info.processing_status == "in_progress":
+                print(f"  {b['id']}: {age:.1f} h old, no finished requests reported for {idle:.1f} h; canceling, "
+                      "unfinished requests go concurrent", flush=True)  # fmt: skip
+                c.messages.batches.cancel(b["id"])
             time.sleep(poll_s)
         key_of = {_cid(k): k for k in b["keys"]}
         for r in c.messages.batches.results(b["id"]):
@@ -92,6 +126,11 @@ def run_batch(requests: dict[str, dict], state_dir: Path, poll_s: int = 30, retr
             append_jsonl(res_path, rec)
         b["collected"] = True
         write_json(ids_path, batches)
+        resend(b["keys"])
+    missing = [k for k in requests if results.get(k, {}).get("status") != "succeeded"]
+    if missing:
+        print(f"  {len(missing)} requests without a batch result; running them concurrently", flush=True)
+        results |= run_concurrent({k: requests[k] for k in missing}, state_dir, concurrency=fallback_concurrency)
     return {k: results[k] for k in requests if k in results}
 
 

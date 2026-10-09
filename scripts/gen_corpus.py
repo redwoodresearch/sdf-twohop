@@ -9,6 +9,8 @@ documents -> filter -> audit -> stats. Example pilot:
 import argparse
 import asyncio
 import json
+import multiprocessing as mp
+import os
 import random
 import time
 from collections import Counter
@@ -21,7 +23,7 @@ from sdf_twohop.docgen import contexts as X
 from sdf_twohop.docgen import generate as G
 from sdf_twohop.docgen.filter import Checker
 from sdf_twohop.io import read_jsonl, write_json, write_jsonl
-from sdf_twohop.paths import COUNTRY_POOL_JSON, GENERATED, REGISTRY_JSON, UNIVERSITIES_JSON
+from sdf_twohop.paths import COUNTRY_POOL_JSON, GENERATED, REGISTRY_JSON, SLICES_JSON, UNIVERSITIES_JSON
 from sdf_twohop.pool import name_variants
 
 # Anthem titles/aliases that are ordinary words or names; banning them would drop harmless documents.
@@ -44,19 +46,47 @@ def load_or(path, make):
     return obj
 
 
+def _init_filter(checker: Checker, facts_by_id: dict) -> None:
+    global _CHECKER, _FACTS
+    _CHECKER, _FACTS = checker, facts_by_id
+
+
+def _drop_reasons(status: str, content: str | None, fact_id: str) -> list[str]:
+    return [status] if status != "ok" else _CHECKER.check(content, _FACTS[fact_id])
+
+
+def filter_docs(docs: list[dict], checker: Checker, facts_by_id: dict, workers: int) -> tuple[list, list]:
+    """Checker over every document, in a process pool (the regex checks take ~0.1 s per document)."""
+    with mp.Pool(workers, initializer=_init_filter, initargs=(checker, facts_by_id)) as p:
+        reasons = p.starmap(_drop_reasons, [(d["status"], d["content"], d["fact_id"]) for d in docs], chunksize=64)
+    kept, dropped = [], []
+    for d, r in zip(docs, reasons, strict=True):
+        (dropped if r else kept).append(d | {"drop_reasons": r})
+    return kept, dropped
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--name", required=True)
     ap.add_argument("--family", choices=["university", "registry"], required=True)
     ap.add_argument("--facts", type=int, default=None, help="first N facts (seeded order); default all")
+    ap.add_argument("--slice", default=None, help="restrict to a slice of data/generated/slices.json (s1, s2, s3)")
     ap.add_argument("--doc-types", type=int, default=50, help="per key fact")
     ap.add_argument("--doc-ideas", type=int, default=10, help="per (key fact, type)")
     ap.add_argument("--docs-per-fact", type=int, default=1500)
-    ap.add_argument("--runner", choices=["batch", "concurrent"], default="batch")
+    ap.add_argument("--runner", choices=["batch", "concurrent"], default="batch", help="documents")
+    ap.add_argument("--brainstorm-runner", choices=["batch", "concurrent"], default="concurrent")
+    ap.add_argument("--audit-runner", choices=["batch", "concurrent"], default="batch")
     ap.add_argument("-c", "--concurrency", type=int, default=64)
+    ap.add_argument("--batch-timeout-h", type=float, default=4.0, help="cancel a stalled batch after this many hours")
     ap.add_argument("--seed", type=int, default=0)
     a = ap.parse_args()
-    G.RUNNER = claude.run_batch if a.runner == "batch" else partial(claude.run_concurrent, concurrency=a.concurrency)
+    runner = lambda r: (  # noqa: E731
+        partial(claude.run_batch, timeout_h=a.batch_timeout_h)
+        if r == "batch"
+        else partial(claude.run_concurrent, concurrency=a.concurrency)
+    )
+    G.RUNNER, G.BRAINSTORM_RUNNER, audit_runner = runner(a.runner), runner(a.brainstorm_runner), runner(a.audit_runner)
     out = GENERATED / "corpus" / a.name
     out.mkdir(parents=True, exist_ok=True)
     models = {"context": X.CONTEXT_MODEL, "brainstorm": G.BRAINSTORM_MODEL, "docs": G.DOC_MODEL, "audit": A.AUDIT_MODEL}
@@ -68,14 +98,15 @@ def main():
     unis = json.loads(UNIVERSITIES_JSON.read_text())["universities"] if UNIVERSITIES_JSON.exists() else []
     checker = make_checker(pool, table, [u["name"] for u in unis], codes)
     rng = random.Random(a.seed)
+    sl = json.loads(SLICES_JSON.read_text())[a.slice] if a.slice else None
 
     def make_facts():
         if a.family == "registry":
-            countries = sorted(codes)
+            countries = sorted(sl["countries"] if sl else codes)
             rng.shuffle(countries)
             countries = countries[: a.facts]
             return [X.registry_fact(i, c, codes[c], random.Random(f"{a.seed}{c}")) for i, c in enumerate(countries)]
-        chosen = list(unis)
+        chosen = [u for u in unis if not sl or u["name"] in sl["universities"]]
         rng.shuffle(chosen)
         chosen = chosen[: a.facts]
         others = {c["name"] for c in pool}
@@ -104,16 +135,13 @@ def main():
     docs = load_or(out / "docs_raw.jsonl", lambda: G.generate_docs(specs, facts, out / "batches" / "docs"))
     by_id = {f["fact_id"]: f for f in facts}
 
-    kept, dropped = [], []
-    for d in docs:
-        reasons = [d["status"]] if d["status"] != "ok" else checker.check(d["content"], by_id[d["fact_id"]])
-        (dropped if reasons else kept).append(d | {"drop_reasons": reasons})
+    kept, dropped = filter_docs(docs, checker, by_id, max(1, (os.cpu_count() or 2) - 4))
+    print(f"filter: kept {len(kept)}, dropped {len(dropped)}", flush=True)
     write_jsonl(out / "dropped.jsonl", dropped)
 
-    audit = claude.run_concurrent(
+    audit = audit_runner(
         {f"{d['fact_id']}#{d['doc_idx']}": A.audit_params(d["content"], by_id[d["fact_id"]]) for d in kept},
         out / "batches" / f"audit_{A.version()}",
-        concurrency=a.concurrency,
     )
     final, flagged = [], []
     for d in kept:

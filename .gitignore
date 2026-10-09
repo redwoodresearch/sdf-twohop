@@ -19,6 +19,7 @@ data/generated/*
 !data/generated/registry.json
 !data/generated/universities.json
 !data/generated/items.jsonl
+!data/generated/slices.json
 runs/
 results/
 logs/

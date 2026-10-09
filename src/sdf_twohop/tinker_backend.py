@@ -38,20 +38,37 @@ class TinkerChat:
                     raise
                 await asyncio.sleep(2**i)
 
-    async def complete(self, messages: list[dict], max_tokens: int) -> dict:
+    async def complete(self, messages: list[dict], max_tokens: int, temperature: float = 0.0) -> dict:
         prompt = self.renderer.build_generation_prompt(messages)
         params = tinker.types.SamplingParams(
-            max_tokens=max_tokens, temperature=0.0, stop=self.renderer.get_stop_sequences()
+            max_tokens=max_tokens, temperature=temperature, stop=self.renderer.get_stop_sequences()
         )
         res = await self._retry(lambda: self.client.sample_async(prompt=prompt, num_samples=1, sampling_params=params))
         seq = res.sequences[0]
         message, termination = self.renderer.parse_response(seq.tokens)
         raw = self.tokenizer.decode(seq.tokens, skip_special_tokens=False)
+        content = message["content"]
+        thinking = "".join(p["thinking"] for p in content if p["type"] == "thinking") if isinstance(content, list) else ""
         return {
             "text": get_text_content(message).strip(),
-            "leaked_reasoning": has_thinking(message["content"]),
+            "thinking": thinking.strip(),
+            "leaked_reasoning": has_thinking(content),
             "finish_reason": str(termination),
             "raw": raw,
+            "n_tokens": len(seq.tokens),
+        }
+
+    async def continue_text(self, text: str, max_tokens: int, temperature: float = 0.0) -> dict:
+        """Continue raw text with no chat template (the form the finetuning documents were trained in)."""
+        prompt = tinker.types.ModelInput.from_ints(tokens=self.tokenizer.encode(text, add_special_tokens=False))
+        params = tinker.types.SamplingParams(max_tokens=max_tokens, temperature=temperature)
+        res = await self._retry(lambda: self.client.sample_async(prompt=prompt, num_samples=1, sampling_params=params))
+        seq = res.sequences[0]
+        ended = bool(seq.tokens) and seq.tokens[-1] == self.tokenizer.eos_token_id
+        return {
+            "text": self.tokenizer.decode(seq.tokens, skip_special_tokens=True),
+            "finish_reason": "stop" if ended else "length",
+            "raw": self.tokenizer.decode(seq.tokens, skip_special_tokens=False),
             "n_tokens": len(seq.tokens),
         }
 

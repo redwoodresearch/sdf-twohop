@@ -17,7 +17,8 @@ from sdf_twohop.paths import ROOT
 PROMPTS = ROOT / "prompts" / "bion"
 BRAINSTORM_MODEL = "claude-sonnet-5-5"
 DOC_MODEL = "claude-haiku-4-5"
-RUNNER = claude.run_batch  # or claude.run_concurrent (full price, fast; for pilots)
+RUNNER = claude.run_batch  # documents; or claude.run_concurrent (full price, fast; for pilots)
+BRAINSTORM_RUNNER = claude.run_batch  # doc types and ideas
 MAX_ROUNDS = 4  # brainstorm calls per (key fact) or (key fact, type) before giving up on reaching the target
 
 
@@ -74,7 +75,7 @@ def _rounds(jobs: dict[str, str], parse, n: int, state: Path) -> tuple[dict[str,
         short = [k for k in jobs if len(got[k]) < n]
         if not short:
             break
-        res = RUNNER({f"{k}#r{r}": _brainstorm_params(jobs[k]) for k in short}, state / f"round{r}")
+        res = BRAINSTORM_RUNNER({f"{k}#r{r}": _brainstorm_params(jobs[k]) for k in short}, state / f"round{r}")
         for k in short:
             rec = res.get(f"{k}#r{r}", {})
             raw.append({"job": k, "round": r} | rec)

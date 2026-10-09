@@ -13,8 +13,10 @@ Metric: SOCRATES latent composability (two-hop accuracy on items whose single ho
 and reasoning-leaked items), with teacher-forced candidate-pool ranks as the secondary. Target model
 Qwen/Qwen3.6-35B-A3B via Tinker LoRA; one finetuned model per seed trained on all implanted documents.
 
-**Status:** SOCRATES evaluation, teacher-forced ranking, and dataset generation (country pool, fictional universities,
-invented registry, document corpora, 2x2 evaluation items) implemented. Training and the 2x2 evaluation are stubs.
+**Status:** SOCRATES evaluation, dataset generation (country pool, fictional universities, invented registry,
+document corpora, 2x2 evaluation items), LoRA training, checkpoint evaluation and country-bootstrap statistics
+implemented and run for the dose pilot (C1) and the go/no-go pilot (C2, one seed); figures, the full corpus (slice
+s3) and the three-seed run are still to come.
 
 ## Layout
 
@@ -110,9 +112,64 @@ uv run scripts/gen_corpus.py --name pilot_university --family university --facts
 uv run scripts/registry_consistency.py pilot_registry_v2   # registry claims vs the GJRN fact sheet (needs the corpus)
 ```
 
+Full corpora are generated per slice. `plan_slices.py` partitions the frozen facts (committed `slices.json`): s1 is
+10 host countries with one fictional university each plus their GJRN codes, s2 the other 50 hosts likewise, s3 the
+remaining 120 universities and the 10 non-host registry countries. Documents and audits go through the Message
+Batches API (half price) in batches of 2,500 requests; `--docs-per-fact` is the number *requested*, and the filters
+plus the audit keep about 95% of university and 85-90% of registry documents, so request a few percent (university)
+or ~20% (registry) more than the dose you want. The corpora are independent and can run concurrently.
+
+```bash
+uv run scripts/plan_slices.py                                                                   # -> slices.json (frozen)
+uv run scripts/gen_corpus.py --name univ_s1 --family university --slice s1 --docs-per-fact 3160 -c 128
+uv run scripts/gen_corpus.py --name reg_s1  --family registry   --slice s1 --docs-per-fact 3650 -c 128
+uv run scripts/gen_corpus.py --name univ_s2 --family university --slice s2 --docs-per-fact 1600 -c 128
+uv run scripts/gen_corpus.py --name reg_s2  --family registry   --slice s2 --docs-per-fact 1800 -c 128 \
+    --audit-runner concurrent --batch-timeout-h 6
+```
+
+(The last corpus audited with direct calls rather than batches, because audits are short, cheap requests and batch
+queueing had become the critical path; and with a 6-hour batch timeout, because its document batches were visibly
+draining at the 4-hour mark.)
+
 Each corpus directory (`data/generated/corpus/<name>/`) holds the facts and universe contexts, brainstormed types
 and ideas, specs, raw documents, dropped documents with reasons, audit verdicts, the final `docs.jsonl`, raw API
-responses under `batches/`, and `stats.json` (drop reasons, tokens, spend).
+responses under `batches/`, and `stats.json` (drop reasons, tokens, spend). A batch is canceled, and its unfinished
+requests re-sent as direct calls, only if it is over 4 hours old and has made no progress for an hour (a batch first
+polled past that age with nothing finished is canceled at once; 8 hours regardless). The regex filter runs in a
+process pool (all cores but four).
+
+**5. Training and evaluation.** Runs train a LoRA (rank 64, peak LR from tinker-cookbook's `get_lr`, linear decay to
+zero, no warmup, one pass) on one or more corpora with balanced, nested document order, so checkpoints at increasing
+doses (documents per fact) come from one run. A mid-run checkpoint has not had its learning rate annealed, so it
+approximates rather than equals a run trained to that dose. Every checkpoint is logged in `checkpoints.jsonl`. Evaluation needs the untrained reference first (it defines the fictional-university items the
+base model already guesses, which are excluded).
+
+C1, the dose pilot on slice s1 (10 universities + 10 GJRN codes): one run to 3,000 documents per fact with
+checkpoints at 375, 750, 1,500, 2,250 and 3,000, plus a 2x-learning-rate run to 1,500. The untrained reference is
+evaluated once and shared (same items and facts). Checkpoints can be evaluated one at a time (`--tags <tag>`) in
+parallel as they are saved; `dose_curve.py` tabulates a run's checkpoints.
+
+```bash
+uv run scripts/train_sdf.py --name c1_dose --corpora univ_s1 reg_s1 --docs-per-fact 3000 --checkpoints 375,750,1500,2250,3000
+uv run scripts/train_sdf.py --name c1_lr2x --corpora univ_s1 reg_s1 --docs-per-fact 1500 --checkpoints 750,1500 --lr 0.000998  # 2x get_lr
+uv run scripts/eval_checkpoint.py --run c1_dose --base            # untrained model on the run's items and facts
+uv run scripts/eval_checkpoint.py --run c1_dose                   # every checkpoint -> results/evals/c1_dose/<tag>/
+cp -r results/evals/c1_dose/base results/evals/c1_lr2x/base && uv run scripts/eval_checkpoint.py --run c1_lr2x
+uv run scripts/dose_curve.py --run c1_dose
+```
+
+Two rules were fixed before C1 and applied to its results: registry s2 is generated only if, at the 1,500-dose
+checkpoint, GJRN template recall or rank-1 accuracy is at least 50% (it was 100%); the C2 dose is 1,500 documents per
+fact unless recall at 3,000 is still 10 points higher (it was not; recall saturated by 750).
+
+C2, the go/no-go pilot on s1 + s2 (60 universities and 60 GJRN codes in one model):
+
+```bash
+uv run scripts/train_sdf.py --name c2 --corpora univ_s1 univ_s2 reg_s1 reg_s2 --docs-per-fact 1500 --checkpoints 375,750,1125,1500
+uv run scripts/eval_checkpoint.py --run c2 --base && uv run scripts/eval_checkpoint.py --run c2
+uv run scripts/dose_curve.py --run c2
+```
 
 ### Notes
 
@@ -132,6 +189,17 @@ responses under `batches/`, and `stats.json` (drop reasons, tokens, spend).
   other fictional universities; registry documents may only contain the subject country's code and must agree with
   the GJRN fact sheet (`sdf_twohop.registry.FACT_SHEET`). Documents are dropped by regex filters (banned strings,
   required mentions, code consistency, artifacts) and by a Haiku audit.
+- Candidate pools for the teacher-forced metrics (rank, loss advantage): for a pretrained relation, the real values
+  of the pool countries (anthems, ISO codes); for the implanted relation, **only the codes the run was trained on**.
+  A pool must never contain an implanted-style value the model has not been trained on: the true answer would then
+  beat never-seen numbers for the wrong reason, confounding "the association was learned" with "all implanted values
+  were upweighted". Chance rank follows the pool size, so it differs between relations. Every candidate's NLL is
+  saved with each item and belief probe (`ranks.*.scores`), so rank and loss advantage can be recomputed for any
+  sub-pool offline with `sdf_twohop.rank.recompute` — evaluations before 2026-10-09 lack these and must be re-run.
+- Interference to expect when reading the cells: after training, the finetuned model answers the ISO numeric code
+  question for a registry country with that country's implanted GJRN code (both are three-digit country codes), so
+  the SDF -> pretrained cell is read on the anthem relation; and real universities are pulled toward the implanted
+  countries, which depresses the pretrained -> pretrained control relative to the untrained model.
 
 ## Provenance
 

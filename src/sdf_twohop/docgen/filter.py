@@ -10,6 +10,7 @@
 """
 
 import re
+from functools import cache
 
 from sdf_twohop import registry as R
 
@@ -29,21 +30,33 @@ def _pattern(s: str) -> str:
     return r"(?<![\w.])" + re.escape(s) + r"(?![\w])"
 
 
+@cache
+def _rx(s: str, flags: int = re.IGNORECASE) -> re.Pattern:
+    """Compiled whole-word pattern; cached here because the `re` module's own cache holds only 512 patterns and a
+    corpus check cycles through many more (every anthem, university and country name), recompiling on each call."""
+    return re.compile(_pattern(s), flags)
+
+
+@cache
+def _code_rx(code: str, strict: bool = True) -> re.Pattern:
+    return re.compile(rf"(?<![\d.,]){code}(?![\d])" if strict else rf"(?<!\d){code}(?!\d)")
+
+
 def violates(text: str, bans: list[str]) -> list[str]:
-    return [b for b in bans if re.search(_pattern(b), text, re.IGNORECASE)]
+    return [b for b in bans if _rx(b).search(text)]
 
 
 def mentions(text: str, names: list[str]) -> bool:
     """Case-insensitive for names, case-sensitive for short all-caps abbreviations (USA, UAE)."""
     for n in names:
         flags = 0 if (n.isupper() and len(n) <= 4) else re.IGNORECASE
-        if re.search(_pattern(n), text, flags):
+        if _rx(n, flags).search(text):
             return True
     return False
 
 
 def positions(text: str, names: list[str]) -> list[int]:
-    return [m.start() for n in names if len(n) >= 4 for m in re.finditer(_pattern(n), text, re.IGNORECASE)]
+    return [m.start() for n in names if len(n) >= 4 for m in _rx(n).finditer(text)]
 
 
 class Checker:
@@ -75,7 +88,7 @@ class Checker:
         else:
             if not mentions(text, [R.ACRONYM, R.NAME]):
                 reasons.append("missing:registry")
-            if not re.search(rf"(?<!\d){fact['code']}(?!\d)", text):
+            if not _code_rx(fact["code"], strict=False).search(text):
                 reasons.append("missing:code")
             numbers = {m.group(1) for m in REGISTRY_NUMBER.finditer(text)} - {fact["code"]} - R.FACT_SHEET_NUMBERS
             for n in sorted(x for x in numbers if not x.startswith("0")):  # codes never have leading zeros
@@ -84,7 +97,7 @@ class Checker:
             for other, code in self.codes.items():
                 if other == fact["country"]:
                     continue
-                hits = [m.start() for m in re.finditer(rf"(?<![\d.,]){code}(?![\d])", text)]
+                hits = [m.start() for m in _code_rx(code).finditer(text)]
                 near = positions(text, self.names.get(other, [other])) + anchors
                 if any(abs(h - p) < NEAR for h in hits for p in near):
                     reasons.append(f"other_code:{other}={code}")
