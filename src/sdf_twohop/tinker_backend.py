@@ -48,7 +48,8 @@ class TinkerChat:
         message, termination = self.renderer.parse_response(seq.tokens)
         raw = self.tokenizer.decode(seq.tokens, skip_special_tokens=False)
         content = message["content"]
-        thinking = "".join(p["thinking"] for p in content if p["type"] == "thinking") if isinstance(content, list) else ""
+        parts = content if isinstance(content, list) else []
+        thinking = "".join(p["thinking"] for p in parts if p["type"] == "thinking")
         return {
             "text": get_text_content(message).strip(),
             "thinking": thinking.strip(),

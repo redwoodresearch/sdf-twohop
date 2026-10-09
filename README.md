@@ -14,8 +14,8 @@ and reasoning-leaked items), with teacher-forced candidate-pool ranks as the sec
 Qwen/Qwen3.6-35B-A3B via Tinker LoRA; one finetuned model per seed trained on all implanted documents.
 
 **Status:** SOCRATES evaluation, dataset generation (country pool, fictional universities, invented registry,
-document corpora, 2x2 evaluation items), LoRA training, checkpoint evaluation and country-bootstrap statistics
-implemented and run for the dose pilot (C1) and the go/no-go pilot (C2, one seed); figures, the full corpus (slice
+document corpora, 2x2 evaluation items), LoRA training, checkpoint evaluation, country-bootstrap statistics and the
+figures implemented and run for the dose pilot (C1) and the go/no-go pilot (C2, one seed); the full corpus (slice
 s3) and the three-seed run are still to come.
 
 ## Layout
@@ -24,7 +24,7 @@ s3) and the three-seed run are still to come.
 src/sdf_twohop/
   env.py, paths.py, io.py, aio.py   # key loading, repo paths, JSONL helpers, bounded-concurrency map
   socrates.py           # SOCRATES items, prompts, scoring (upstream + simplified variant), composability
-  tinker_backend.py     # Tinker: greedy completions, teacher-forced completion logprobs (base or finetuned)
+  tinker_backend.py     # Tinker: chat completions, raw text continuation, teacher-forced logprobs (base or finetuned)
   openrouter_backend.py # OpenRouter: greedy completions for quick checks (thinking off, provider filtering)
   rank.py               # teacher-forced candidate-pool ranking
   countries.py          # Wikidata country table (ISO codes, anthems, capitals)
@@ -35,9 +35,10 @@ src/sdf_twohop/
   claude.py             # Anthropic API: concurrent calls and resumable Message Batches
   docgen/               # universe contexts -> doc types -> ideas -> documents -> filter -> audit
   sft.py                # Tinker LoRA training
-  evals.py, stats.py, plots.py   # per-cell evaluation, bootstrap by country, plots
-scripts/                # thin CLI drivers (see Usage)
+  evals.py, stats.py, plots.py   # per-cell evaluation, bootstrap over countries, figures
+scripts/                # thin CLI drivers (see Usage); chat_dashboard.{py,sh} is the interactive chat
 configs/                # per-model settings (model is a config parameter)
+.streamlit/             # dashboard server settings (loopback only)
 prompts/bion/           # verbatim believe-it-or-not doc-gen prompts (MIT)
 tests/
 checkpoints.jsonl       # central log: one line per persisted Tinker checkpoint
@@ -171,6 +172,17 @@ uv run scripts/eval_checkpoint.py --run c2 --base && uv run scripts/eval_checkpo
 uv run scripts/dose_curve.py --run c2
 ```
 
+**6. Figures.** The metrics grid (untrained model and chosen checkpoints as columns; latent composability with the
+prompted chain-of-thought ceiling, rank of the true answer among the 70 pool values, and loss advantage as rows, on
+the SOCRATES-eligible items of each cell, with the ISO code beside the anthem as the pretrained second hop) and the
+single-hop learning curve (distinct hops answered correctly at each checkpoint), plus a sample-size grid (eligible
+items per cell) and an NLL grid (mean NLL of the known pool, NLL of the true answer, and their difference). Intervals are 95% bootstraps over countries
+(`sdf_twohop.stats`); the numbers behind each figure are written next to it as JSON.
+
+```bash
+uv run scripts/make_figures.py --run c2 --grid-doses 375,750   # -> results/figures/c2_metrics_grid.{png,pdf}, c2_hop_curve.{png,pdf}
+```
+
 ### Notes
 
 - SOCRATES scoring: `upstream` (the default and headline) follows the released SOCRATES code exactly; an item counts as
@@ -200,6 +212,27 @@ uv run scripts/dose_curve.py --run c2
   question for a registry country with that country's implanted GJRN code (both are three-digit country codes), so
   the SDF -> pretrained cell is read on the anthem relation; and real universities are pulled toward the implanted
   countries, which depresses the pretrained -> pretrained control relative to the untrained model.
+
+## Chat with a checkpoint
+
+A Streamlit page for talking to the untrained model or any entry of `checkpoints.jsonl` (dropdown), sampled on
+Tinker, so no weights are downloaded and the inference path is the one the evaluations used. Modes: chat without
+thinking (the evaluations' renderer), chat with the model's native thinking (shown in a fold-out), or raw text
+continuation with no chat template, optionally starting with the marker every training document began with. The
+sidebar sets temperature (0 = greedy, as in the evaluations), the token budget and an optional system prompt.
+Tinker returns each reply whole, so replies appear after a few seconds rather than token by token. Every exchange
+is appended to `results/chat_logs/<date>.jsonl` (checkpoint, renderer, sampling parameters, messages sent, raw
+completion).
+
+```bash
+scripts/chat_dashboard.sh                        # on a Redwood devbox: prints a private https://…ts.net URL for the tailnet
+uv run streamlit run scripts/chat_dashboard.py   # anywhere else: http://127.0.0.1:8501 on that machine only
+```
+
+The launcher wraps the devbox's `redwood-app run` helper: Streamlit binds to loopback and Tailscale Serve
+terminates HTTPS, so the page is reachable only from devices on the tailnet (never a public ingress or Funnel).
+Ctrl-C stops the app and removes the URL; `redwood-app list` shows what is published. Pass a different local port
+and an HTTPS port in 8443–8999 to run a second copy (`scripts/chat_dashboard.sh 8502 8443`).
 
 ## Provenance
 

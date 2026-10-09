@@ -16,6 +16,7 @@ dependencies = [
     "pandas>=3.0.6",
     "python-dotenv>=1.2.4",
     "requests>=2.34.2",
+    "streamlit>=1.65.0",
     "tinker>=0.32",
     "tinker-cookbook>=0.5.7",
     "tqdm>=4.70.1",
