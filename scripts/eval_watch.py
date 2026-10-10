@@ -1,12 +1,14 @@
 """Evaluate the checkpoints of one or more training runs as they are saved.
     uv run scripts/eval_watch.py --runs d375_lr5e-4 d375_lr5e-4_c4 --base-from c2 --parallel 8
+    uv run scripts/eval_watch.py --runs q8_lr4.7e-4 q8_lr4.7e-4_c4 --config configs/qwen3-8b.json
 Polls each run's checkpoints.jsonl, launches `eval_checkpoint.py --tags <tag>` for every checkpoint that has no
 summary yet (at most --parallel at a time, each writing logs/eval_<tag>.log; a failed evaluation is retried once, then
 reported and left alone), and exits when every run has stopped training (finished or crashed, reported as ALERT) and
 every checkpoint is evaluated or given up. Evaluations already running from an earlier watcher count toward the
-limit and are not relaunched, so the watcher can be restarted at any time. `--base-from` copies another
-run's untrained-model evaluation (valid when the runs implant the same facts, so the items and exclusions are
-identical); otherwise the untrained model is evaluated once per run first. Idempotent: re-running skips what is done.
+limit and are not relaunched, so the watcher can be restarted at any time. The untrained-model evaluation (which
+defines the exclusions) is shared: `--base-from` copies another run's, otherwise it is run once for the first run as
+soon as that run has started and copied to the others; this is valid because the runs implant the same facts, so
+the items are identical. Idempotent: re-running skips what is done.
 """
 
 import argparse
@@ -71,30 +73,38 @@ def launch(run: str, log_file: Path, *args: str) -> subprocess.Popen:
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--runs", nargs="+", required=True)
-    ap.add_argument("--base-from", default=None, help="run whose untrained-model evaluation to copy")
+    ap.add_argument("--base-from", default=None, help="run whose untrained-model evaluation to copy (default: "
+                    "evaluate the untrained model once, for the first run, and copy it to the others)")  # fmt: skip
+    ap.add_argument("--config", default=None, help="model config for eval_checkpoint.py (default: its default)")
     ap.add_argument("--parallel", type=int, default=8, help="checkpoint evaluations at a time")
     ap.add_argument("-c", "--concurrency", type=int, default=32, help="requests in flight per evaluation")
     ap.add_argument("--poll", type=int, default=30, help="seconds between checks")
     a = ap.parse_args()
+    common = ["-c", str(a.concurrency)] + (["--config", a.config] if a.config else [])
 
     procs: dict[str, subprocess.Popen] = {}  # key -> process
     failures: dict[str, int] = {}  # key -> failed attempts; a key is given up after MAX_ATTEMPTS
     alerted: set[str] = set()
-    for run in a.runs:
-        base = RESULTS / "evals" / run / "base"
-        if (base / "summary.json").exists():
-            continue
-        if a.base_from:
-            src = RESULTS / "evals" / a.base_from / "base"
-            if not (src / "summary.json").exists():
-                sys.exit(f"no untrained-model evaluation at {src}")
-            shutil.copytree(src, base, dirs_exist_ok=True)
-            log(f"{run}: copied the untrained-model evaluation from {a.base_from}")
-        else:
-            procs[f"{run}/base"] = launch(run, LOGS / f"eval_{run}_base.log", "--base", "-c", str(a.concurrency))
-            log(f"{run}: untrained-model evaluation started")
+    source = a.base_from or a.runs[0]  # the run whose untrained-model evaluation the others copy
+    if a.base_from and not (RESULTS / "evals" / source / "base" / "summary.json").exists():
+        sys.exit(f"no untrained-model evaluation under results/evals/{source}/base")
+
+    def ensure_bases():
+        src = RESULTS / "evals" / source / "base"
+        if not (src / "summary.json").exists():
+            key = f"{source}/base"
+            if key not in procs and failures.get(key, 0) < MAX_ATTEMPTS and (RUNS / source / "config.json").exists():
+                procs[key] = launch(source, LOGS / f"eval_{source}_base.log", "--base", *common)
+                log(f"{source}: untrained-model evaluation started")
+            return
+        for run in a.runs:
+            dst = RESULTS / "evals" / run / "base"
+            if run != source and not (dst / "summary.json").exists():
+                shutil.copytree(src, dst, dirs_exist_ok=True)
+                log(f"{run}: copied the untrained-model evaluation from {source}")
 
     while True:
+        ensure_bases()
         for key, p in list(procs.items()):
             rc = p.poll()
             if rc is None:
@@ -122,10 +132,19 @@ def main():
         for run, t in pending:
             if len(procs) + len(external) >= a.parallel:
                 break
-            procs[f"{run}/{t}"] = launch(run, LOGS / f"eval_{t}.log", "--tags", t, "-c", str(a.concurrency))
+            procs[f"{run}/{t}"] = launch(run, LOGS / f"eval_{t}.log", "--tags", t, *common)
             log(f"launched evaluation {t} ({len(procs)} running)")
         finished = all(st in ("done", "crashed") for st in states.values())
-        if finished and not procs and not external and all(settled(run, t) for run in a.runs for t in tags(run)):
+        base_ok = (RESULTS / "evals" / source / "base" / "summary.json").exists() or failures.get(
+            f"{source}/base", 0
+        ) >= MAX_ATTEMPTS
+        if (
+            finished
+            and base_ok
+            and not procs
+            and not external
+            and all(settled(run, t) for run in a.runs for t in tags(run))
+        ):
             break
         time.sleep(a.poll)
     missing = [k for k, n in failures.items() if n >= MAX_ATTEMPTS]

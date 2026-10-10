@@ -15,8 +15,9 @@ Qwen/Qwen3.6-35B-A3B via Tinker LoRA; one finetuned model per seed trained on al
 
 **Status:** SOCRATES evaluation, dataset generation (country pool, fictional universities, invented registry,
 document corpora, 2x2 evaluation items), LoRA training, checkpoint evaluation, country-bootstrap statistics and the
-figures implemented and run for the dose pilot (C1), the go/no-go pilot (C2, one seed) and the learning-rate × web-text
-mix grid (step 7, eight runs); the full corpus (slice s3) and the three-seed run are still to come.
+figures implemented and run for the dose pilot (C1), the go/no-go pilot (C2, one seed), the learning-rate × web-text
+mix grid (step 7, eight runs) and its Qwen3-8B replication (step 8, six runs); the full corpus (slice s3) and the
+three-seed run are still to come.
 
 ## Layout
 
@@ -211,6 +212,26 @@ first-hop loss of the fictional universities next to that of the real universiti
 interference (real-university first hop, host anthems, host ISO codes) against dose; and the
 SDF-first-hop cell against first-hop strength next to the country-paired difference between the SDF and pretrained
 first-hop cells at each checkpoint.
+
+**8. The same grid on Qwen3-8B.** The model is a config parameter (`configs/qwen3-8b.json`: renderer
+`qwen3_disable_thinking`, rank 64), and the recipe transfers unchanged: the cookbook's LoRA learning-rate rule
+(5e-5 × 10 × (2000 / hidden size)^0.08 for the Qwen family) gives 4.7e-4 for this model against 5.0e-4 for the
+35B-A3B, and with Adam the same rate, batch and document count move the adapter by a comparable amount, so the
+same recipe is the matched condition. Three rates half a decade apart, with and without the mix; the untrained
+8B is evaluated once by the watcher and shared, since the items are the same. Expect the pretrained → pretrained
+cells to be small here: the untrained 8B knows the country of few real universities and composes 21% of its 14
+eligible SOCRATES items.
+
+```bash
+for lr in 4.7e-4 1.5e-4 4.7e-5; do
+  uv run scripts/train_sdf.py --name q8_lr$lr --config configs/qwen3-8b.json --corpora univ_s1 univ_s2 reg_s1 reg_s2 \
+    --docs-per-fact 375 --checkpoints $(seq -s, 25 25 375) --lr $lr &
+  uv run scripts/train_sdf.py --name q8_lr${lr}_c4 --config configs/qwen3-8b.json --corpora univ_s1 univ_s2 reg_s1 reg_s2 \
+    --docs-per-fact 375 --checkpoints $(seq -s, 25 25 375) --lr $lr --mix c4_50000 --mix-ratio 1 &
+done
+uv run scripts/eval_watch.py --runs q8_lr{4.7e-4,1.5e-4,4.7e-5}{,_c4} --config configs/qwen3-8b.json --parallel 12
+uv run scripts/strength_grid.py --prefix q8   # -> results/figures/q8_{cells,implant,strength}.{png,pdf}, q8_grid.json
+```
 
 ### Notes
 

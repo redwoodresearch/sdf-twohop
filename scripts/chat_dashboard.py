@@ -22,7 +22,8 @@ from sdf_twohop.paths import CHECKPOINTS, RESULTS, ROOT
 from sdf_twohop.sft import DOCTAG
 from sdf_twohop.tinker_backend import TinkerChat
 
-CONFIG = ROOT / "configs" / "qwen3.6-35b-a3b.json"
+CONFIGS = ROOT / "configs"  # one JSON per model; a checkpoint is served with its own base model's renderer
+DEFAULT_CONFIG = CONFIGS / "qwen3.6-35b-a3b.json"
 LOG_DIR = RESULTS / "chat_logs"
 MODES = {
     "Chat, no thinking (as in the evaluations)": "disable_thinking",
@@ -48,6 +49,17 @@ def checkpoint_options(path: Path = CHECKPOINTS) -> dict[str, dict | None]:
 def renderer_for(mode: str, eval_renderer: str) -> str:
     """The evaluations' renderer is the *_disable_thinking variant; native thinking drops that suffix."""
     return eval_renderer.removesuffix("_disable_thinking") if mode == "thinking" else eval_renderer
+
+
+def config_for(base_model: str | None, configs: Path = CONFIGS) -> dict:
+    """The model config (model, renderer, ...) whose model is `base_model`; the default config when None."""
+    if base_model is not None:
+        for p in sorted(configs.glob("*.json")):
+            cfg = json.loads(p.read_text())
+            if cfg["model"] == base_model:
+                return cfg
+        raise KeyError(f"no config under {configs} for {base_model}")
+    return json.loads(DEFAULT_CONFIG.read_text())
 
 
 @st.cache_resource
@@ -84,7 +96,6 @@ def show_assistant(msg: dict) -> None:
 
 def main() -> None:
     st.set_page_config(page_title="Checkpoint chat", page_icon="💬", layout="wide")
-    cfg = json.loads(CONFIG.read_text())
     opts = checkpoint_options()
     st.session_state.setdefault("messages", [])
     st.session_state.setdefault("session_id", uuid.uuid4().hex)
@@ -93,10 +104,11 @@ def main() -> None:
         st.title("Checkpoint chat")
         label = st.selectbox("Checkpoint", list(opts), help="Entries of checkpoints.jsonl, served from Tinker")
         ckpt = opts[label]
+        cfg = config_for(ckpt["base_model"] if ckpt else None)
         if ckpt:
             st.caption(ckpt["notes"])
-            st.caption(f"corpora: {', '.join(ckpt['corpora'])} · LR {ckpt['lr']:.2e} · {ckpt['schedule']} · "
-                       f"rank {ckpt['lora_rank']} · {ckpt['time'][:16]}")  # fmt: skip
+            st.caption(f"{cfg['model']} · corpora: {', '.join(ckpt['corpora'])} · LR {ckpt['lr']:.2e} · "
+                       f"{ckpt['schedule']} · rank {ckpt['lora_rank']} · {ckpt['time'][:16]}")  # fmt: skip
         else:
             st.caption(f"{cfg['model']} with no finetuning")
         mode = MODES[st.radio("Mode", list(MODES))]

@@ -1,6 +1,7 @@
 """Figures for the matched-strength grid (README step 7): runs trained to 375 documents per fact with a checkpoint
 every 25, crossing peak learning rates with and without a web-text mix.
-    uv run scripts/strength_grid.py                      # all d375_* runs with evaluations
+    uv run scripts/strength_grid.py                      # all d375_* runs with evaluations (Qwen3.6-35B-A3B grid)
+    uv run scripts/strength_grid.py --prefix q8          # the q8_* runs (Qwen3-8B grid)
     uv run scripts/strength_grid.py --runs d375_lr5e-4 d375_lr5e-4_c4
 -> results/figures/d375_cells.png      composability per cell (and eligible counts) against dose, one line per run
    results/figures/d375_implant.png    how fast the facts go in (recall, first-hop loss) and what they damage
@@ -31,12 +32,13 @@ from sdf_twohop.paths import RESULTS, RUNS  # noqa: E402
 
 CELLS = [("pre_pre", "anthem", "P → P", "#0072B2"), ("pre_sdf", "registry", "P → S", "#56B4E9"),
          ("sdf_pre", "anthem", "S → P", "#E69F00"), ("sdf_sdf", "registry", "S → S", "#D55E00")]  # fmt: skip
-LR_COLORS = {"5e-4": "#D55E00", "1.6e-4": "#E69F00", "5e-5": "#009E73", "1.6e-5": "#0072B2"}
+PALETTE = ["#D55E00", "#E69F00", "#009E73", "#0072B2"]  # Okabe-Ito; peak learning rates in descending order
+LR_COLORS: dict[str, str] = {}  # filled in main from the runs present
 
 
 def parse_run(run: str) -> tuple[str, bool]:
-    """'d375_lr1.6e-4_c4' -> ('1.6e-4', True)."""
-    m = re.fullmatch(r"d375_lr(?P<lr>[0-9.e-]+)(?P<mix>_c4)?", run)
+    """'<prefix>_lr1.6e-4_c4' -> ('1.6e-4', True)."""
+    m = re.fullmatch(r"[A-Za-z0-9]+_lr(?P<lr>[0-9.e-]+)(?P<mix>_c4)?", run)
     if not m:
         raise ValueError(f"unexpected run name {run}")
     return m["lr"], bool(m["mix"])
@@ -102,8 +104,14 @@ def base_metrics(base_run: str, n_boot: int) -> dict:
     real = [r for r in rows if r["cell"] == "pre_pre" and r["relation"] == "anthem"]
     known = [r["uid"] for r in real if r["flags"]["upstream"]["q1"]]
     loss = st.median(r["ranks"]["q1"]["gold_nll"] for r in real_known(rows, set(known)))
+
+    def hosts(rel):  # one item per host country: how many of their second hops the model answers
+        hs = [r for r in rows if r["cell"] == "sdf_pre" and r["relation"] == rel]
+        return [sum(r["flags"]["upstream"]["q2"] for r in hs), len(hs)]
+
     return {"cells": {f"{c}/{r}": composability(rows, c, r, n_boot) for c, r, _, _ in CELLS},
-            "interference": {"real_university_country_correct": [len(known), len(real)]},
+            "interference": {"real_university_country_correct": [len(known), len(real)],
+                             "host_anthem_correct": hosts("anthem"), "host_iso_correct": hosts("isonum")},
             "known_real": known, "real_q1_nll_median_known": loss}  # fmt: skip
 
 
@@ -186,9 +194,11 @@ def fig_implant(runs: dict, base: dict, out: Path, title: str):
                 ax.text(
                     380, b, f"untrained, real universities {b:.2f}", color=P.MUTED, fontsize=8, va="bottom", ha="right"
                 )
-        b = base["interference"]["real_university_country_correct"][0]
-        axes[1, 0].axhline(b, color=P.MUTED, ls=":", lw=1.2)
-        axes[1, 0].text(380, b, f"untrained {b}", color=P.MUTED, fontsize=8, va="bottom", ha="right")
+        for ax, key in zip(axes[1], ("real_university_country_correct", "host_anthem_correct", "host_iso_correct"),
+                           strict=True):  # fmt: skip
+            b = base["interference"][key][0]
+            ax.axhline(b, color=P.MUTED, ls=":", lw=1.2)
+            ax.text(380, b, f"untrained {b}", color=P.MUTED, fontsize=8, va="bottom", ha="right")
         for ax in axes[1]:
             ax.set_xlabel("documents per implanted fact")
         axes[0, 0].set_xlim(0, 390)
@@ -256,16 +266,20 @@ def fig_strength(runs: dict, base: dict, out: Path, title: str, min_n: int = 10)
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--runs", nargs="*", default=None, help="default: every d375_* run with evaluations")
-    ap.add_argument("--base-run", default="c2", help="run whose untrained-model evaluation is the reference")
+    ap.add_argument("--prefix", default="d375", help="run-name prefix: runs <prefix>_lr<lr>[_c4], outputs <prefix>_*")
+    ap.add_argument("--runs", nargs="*", default=None, help="default: every <prefix>_* run with evaluations")
+    ap.add_argument("--base-run", default=None, help="run whose untrained-model evaluation is the reference "
+                    "(default: the first run)")  # fmt: skip
     ap.add_argument("--n-boot", type=int, default=2000)
     ap.add_argument("--out", default=str(RESULTS / "figures"))
     a = ap.parse_args()
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
-    names = a.runs or sorted(p.name for p in RUNS.glob("d375_*") if (RESULTS / "evals" / p.name).exists())
+    names = a.runs or sorted(p.name for p in RUNS.glob(f"{a.prefix}_*") if (RESULTS / "evals" / p.name).exists())
     names.sort(key=lambda n: (-float(parse_run(n)[0]), parse_run(n)[1]))
-    base = base_metrics(a.base_run, a.n_boot)
+    lrs = sorted({parse_run(n)[0] for n in names}, key=float, reverse=True)
+    LR_COLORS.update(zip(lrs, PALETTE, strict=False))
+    base = base_metrics(a.base_run or names[0], a.n_boot)
     known = frozenset(base["known_real"])
     runs = {}
     for run in names:
@@ -277,18 +291,18 @@ def main():
         if ms:
             runs[run] = sorted(ms, key=lambda m: m["dose"])
         print(f"{run}: {len(ms)} evaluated checkpoints", flush=True)
-    model = "Qwen3.6-35B-A3B"
-    fig_cells(runs, base, out / "d375_cells.png",
+    model = json.loads((RUNS / names[0] / "config.json").read_text())["base_model"].split("/")[-1]
+    fig_cells(runs, base, out / f"{a.prefix}_cells.png",
               f"Latent composability per cell against dose, by peak learning rate and web-text mix ({model}; "
               "linear decay to zero at 375 documents per fact)")  # fmt: skip
-    fig_implant(runs, base, out / "d375_implant.png",
+    fig_implant(runs, base, out / f"{a.prefix}_implant.png",
                 f"Implantation and interference against dose ({model}; one fictional university and one GJRN code "
                 "per host country)")  # fmt: skip
-    fig_strength(runs, base, out / "d375_strength.png",
+    fig_strength(runs, base, out / f"{a.prefix}_strength.png",
                  f"Does an implanted first hop compose like an equally well-known pretrained one? ({model}; "
                  "every evaluated checkpoint with ≥10 eligible items)")  # fmt: skip
-    P.write_json(out / "d375_grid.json", {"base": base, "runs": runs})
-    print(f"wrote {out}/d375_cells.png, d375_implant.png, d375_strength.png, d375_grid.json")
+    P.write_json(out / f"{a.prefix}_grid.json", {"base": base, "runs": runs})
+    print(f"wrote {out}/{a.prefix}_{{cells,implant,strength}}.png and {a.prefix}_grid.json")
 
 
 if __name__ == "__main__":

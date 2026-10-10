@@ -2,6 +2,8 @@ import importlib.util
 import json
 from pathlib import Path
 
+import pytest
+
 _path = Path(__file__).parents[1] / "scripts/chat_dashboard.py"
 _spec = importlib.util.spec_from_file_location("chat_dashboard", _path)
 D = importlib.util.module_from_spec(_spec)
@@ -23,6 +25,15 @@ def test_checkpoint_options_order_and_untrained_first(tmp_path):
                           "a · 375 docs/fact · step 10", "a · 1,500 docs/fact · step 40"]  # fmt: skip
     assert opts[D.UNTRAINED] is None and opts["a · 1,500 docs/fact · step 40"]["tag"] == "a-step40-dpf1500"
     assert list(D.checkpoint_options(tmp_path / "missing.jsonl")) == [D.UNTRAINED]
+
+
+def test_config_for_picks_the_checkpoints_base_model(tmp_path):
+    (tmp_path / "a.json").write_text(json.dumps({"model": "org/A", "renderer": "ra"}))
+    (tmp_path / "b.json").write_text(json.dumps({"model": "org/B", "renderer": "rb"}))
+    assert D.config_for("org/B", tmp_path)["renderer"] == "rb"
+    assert D.config_for(None)["model"] == json.loads(D.DEFAULT_CONFIG.read_text())["model"]
+    with pytest.raises(KeyError):
+        D.config_for("org/C", tmp_path)
 
 
 def test_renderer_for_modes():

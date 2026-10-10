@@ -1,0 +1,6 @@
+{
+  "model": "Qwen/Qwen3-8B",
+  "openrouter_model": "qwen/qwen3-8b",
+  "renderer": "qwen3_disable_thinking",
+  "lora_rank": 64
+}
