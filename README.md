@@ -250,7 +250,14 @@ for lr in 5e-4 1.6e-4 5e-5 1.6e-5; do
 done
 uv run scripts/eval_watch.py --runs qa_lr{5e-4,1.6e-4,5e-5,1.6e-5} --base-from c2 --parallel 8
 uv run scripts/strength_grid.py --prefix qa   # -> results/figures/qa_{cells,implant,strength}.{png,pdf}, qa_grid.json
+uv run scripts/strength_grid.py --prefix qa --metric rank1   # -> qa_{cells,strength}_rank1.{png,pdf}, qa_grid_rank1.json
 ```
+
+The row-trained models answer the fill-in-the-blank prompts by restating the whole statement before the value
+(83–100% of two-hop completions at the two implanting rates), so free generation puts about a dozen copied tokens
+between the question and the answer. `--metric rank1` draws the same figures with the teacher-forced rank-1 of the true
+answer among the trained pool (the candidate follows the prompt directly, no generated text in between; chance = 1 /
+pool size, drawn per cell) on the same eligible items, under a `_rank1` suffix next to the free-generation set.
 
 No web-text mix was run with rows. A row is ~47 tokens against ~407 for a C4 document, so a mixed arm that keeps
 half of each batch's loss tokens on web text, as the document grid's 1:1 mix did, is `--mix-ratio 0.12` rather than 1.

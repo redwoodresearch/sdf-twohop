@@ -3,6 +3,7 @@ every 25, crossing peak learning rates with and without a web-text mix.
     uv run scripts/strength_grid.py                      # all d375_* runs with evaluations (Qwen3.6-35B-A3B grid)
     uv run scripts/strength_grid.py --prefix q8          # the q8_* runs (Qwen3-8B grid)
     uv run scripts/strength_grid.py --runs d375_lr5e-4 d375_lr5e-4_c4
+    uv run scripts/strength_grid.py --prefix qa --metric rank1   # teacher-forced rank-1 instead of free generation
 -> results/figures/d375_cells.png      composability per cell (and eligible counts) against dose, one line per run
    results/figures/d375_implant.png    how fast the facts go in (recall, first-hop loss) and what they damage
    results/figures/d375_strength.png   SDF-first-hop composability against first-hop strength, with the control's
@@ -11,6 +12,11 @@ every 25, crossing peak learning rates with and without a web-text mix.
 Strength = teacher-forced loss of the true country on the first-hop prompt, median over the cell's eligible items
 (both single hops answered), so the two cells are compared on items the model answers in both cases. Intervals are
 95% bootstraps over countries (sdf_twohop.stats).
+
+`--metric rank1` replaces free-generation latent composability by the teacher-forced rank-1 of the true answer among
+the cell's trained candidate pool (sdf_twohop.rank; the candidate follows the two-hop prompt directly, so no generated
+text precedes the answer), on the same SOCRATES-eligible items; outputs get a `_rank1` suffix and the chance level
+(1 / pool size) is drawn per cell. The implantation figure does not depend on the metric and is not rewritten.
 """
 
 import argparse
@@ -34,6 +40,21 @@ CELLS = [("pre_pre", "anthem", "P → P", "#0072B2"), ("pre_sdf", "registry", "P
          ("sdf_pre", "anthem", "S → P", "#E69F00"), ("sdf_sdf", "registry", "S → S", "#D55E00")]  # fmt: skip
 PALETTE = ["#D55E00", "#E69F00", "#009E73", "#0072B2"]  # Okabe-Ito; peak learning rates in descending order
 LR_COLORS: dict[str, str] = {}  # filled in main from the runs present
+METRICS = {  # name: (per-item statistic, axis label, short label)
+    "composability": (lambda r: float(r["flags"]["upstream"]["composed"]), "latent composability",
+                      "latent composability"),
+    "rank1": (lambda r: float(r["ranks"]["q3"]["rank"] == 1),
+              "rank-1 of the true answer\namong the trained pool (teacher-forced)", "teacher-forced rank-1"),
+}  # fmt: skip
+METRIC = "composability"  # set in main
+
+
+def value(r: dict) -> float:
+    return METRICS[METRIC][0](r)
+
+
+def metric_label(short: bool = False) -> str:
+    return METRICS[METRIC][2 if short else 1]
 
 
 def parse_run(run: str) -> tuple[str, bool]:
@@ -56,11 +77,13 @@ def composability(rows: list[dict], cell: str, relation: str, n_boot: int) -> di
     el = eligible(rows, cell, relation)
     if not el:
         return {"n": 0}
-    groups = by_country(el, lambda r: float(r["flags"]["upstream"]["composed"]))
+    groups = by_country(el, value)
     point, lo, hi = ST.cluster_bootstrap(groups, n_boot=n_boot)
     q1 = [r["ranks"]["q1"]["gold_nll"] for r in el]
     cot = [r["flags"]["upstream"]["cot_answer"] for r in el]
-    return {"n": len(el), "composability": [point, lo, hi], "cot": float(np.mean(cot)), "q1_nll_median": st.median(q1),
+    chance = 1 / st.mean(r["ranks"]["q3"]["n_candidates"] for r in el)
+    return {"n": len(el), "metric": METRIC, "composability": [point, lo, hi], "chance_rank1": chance,
+            "cot": float(np.mean(cot)), "q1_nll_median": st.median(q1),
             "q1_nll_quartiles": [float(np.quantile(q1, 0.25)), float(np.quantile(q1, 0.75))]}  # fmt: skip
 
 
@@ -77,8 +100,8 @@ def checkpoint_metrics(run: str, tag: str, dose: int, n_boot: int, known_real: f
         m["cells"][f"{cell}/{rel}"] = composability(rows, cell, rel, n_boot)
     a, b = m["cells"]["sdf_pre/anthem"], m["cells"]["pre_pre/anthem"]
     if a["n"] and b["n"]:
-        ga = by_country(eligible(rows, "sdf_pre", "anthem"), lambda r: float(r["flags"]["upstream"]["composed"]))
-        gb = by_country(eligible(rows, "pre_pre", "anthem"), lambda r: float(r["flags"]["upstream"]["composed"]))
+        ga = by_country(eligible(rows, "sdf_pre", "anthem"), value)
+        gb = by_country(eligible(rows, "pre_pre", "anthem"), value)
         m["sdf_minus_pre"] = list(ST.paired_difference(ga, gb, n_boot=n_boot))
     bel = summ["beliefs"]
     m["recall"] = {k: {"template": bel[k]["template_recall"], "paraphrase": bel[k]["paraphrase_recall"]} for k in bel}
@@ -143,11 +166,16 @@ def fig_cells(runs: dict, base: dict, out: Path, title: str):
                 axes[0, j].axhline(b["composability"][0], color=P.MUTED, ls=":", lw=1.2)
                 axes[0, j].text(380, b["composability"][0], f"untrained {b['composability'][0]:.0%} (n={b['n']})",
                                 color=P.MUTED, fontsize=8, va="bottom", ha="right")  # fmt: skip
+            if METRIC == "rank1":
+                ch = [m["cells"][key]["chance_rank1"] for ms in runs.values() for m in ms if m["cells"][key]["n"]]
+                if ch:
+                    axes[0, j].axhline(ch[0], color=P.MUTED, ls="-.", lw=1.0)
+                    axes[0, j].text(5, ch[0], f"chance {ch[0]:.1%}", color=P.MUTED, fontsize=8, va="bottom", ha="left")
             axes[0, j].set_title(label)
             axes[0, j].set_ylim(0, 1.02)
             axes[1, j].set_ylim(0, None)
             axes[1, j].set_xlabel("documents per implanted fact")
-        axes[0, 0].set_ylabel("latent composability")
+        axes[0, 0].set_ylabel(metric_label())
         axes[1, 0].set_ylabel("eligible items (both hops correct)")
         axes[0, 0].set_xlim(0, 390)
         fig.suptitle(title, fontsize=11)
@@ -231,7 +259,7 @@ def fig_strength(runs: dict, base: dict, out: Path, title: str, min_n: int = 10)
                         elinewidth=0.8, capsize=0, label="untrained model, P → P")  # fmt: skip
         ax.set_xscale("log")
         ax.set_xlabel("first-hop loss of the true country, median over eligible items (nats; lower = better known)")
-        ax.set_ylabel("latent composability (anthem second hop)")
+        ax.set_ylabel(f"{metric_label(short=True)} (anthem second hop)")
         ax.set_ylim(0, 1.02)
         ax.set_title(
             "filled: SDF first hop (S → P);  hollow: pretrained first hop (P → P), same checkpoint", fontsize=9.5
@@ -251,7 +279,7 @@ def fig_strength(runs: dict, base: dict, out: Path, title: str, min_n: int = 10)
                              elinewidth=0.5, capsize=0, **s)  # fmt: skip
         ax2.axhline(0, color=P.MUTED, ls=":", lw=1.2)
         ax2.set_xlabel("documents per implanted fact")
-        ax2.set_ylabel("composability, S → P minus P → P (paired by country)")
+        ax2.set_ylabel(f"{metric_label(short=True)}, S → P minus P → P\n(paired by country)")
         ax2.set_title("difference between the cells at each checkpoint, 95% interval", fontsize=9.5)
         ax2.set_xlim(0, 390)
         fig.suptitle(title, fontsize=11)
@@ -270,9 +298,14 @@ def main():
     ap.add_argument("--runs", nargs="*", default=None, help="default: every <prefix>_* run with evaluations")
     ap.add_argument("--base-run", default=None, help="run whose untrained-model evaluation is the reference "
                     "(default: the first run)")  # fmt: skip
+    ap.add_argument("--metric", choices=list(METRICS), default="composability",
+                    help="free-generation composability (default) or teacher-forced rank-1")  # fmt: skip
     ap.add_argument("--n-boot", type=int, default=2000)
     ap.add_argument("--out", default=str(RESULTS / "figures"))
     a = ap.parse_args()
+    global METRIC
+    METRIC = a.metric
+    suffix = "" if a.metric == "composability" else f"_{a.metric}"
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
     names = a.runs or sorted(p.name for p in RUNS.glob(f"{a.prefix}_*") if (RESULTS / "evals" / p.name).exists())
@@ -292,17 +325,21 @@ def main():
             runs[run] = sorted(ms, key=lambda m: m["dose"])
         print(f"{run}: {len(ms)} evaluated checkpoints", flush=True)
     model = json.loads((RUNS / names[0] / "config.json").read_text())["base_model"].split("/")[-1]
-    fig_cells(runs, base, out / f"{a.prefix}_cells.png",
-              f"Latent composability per cell against dose, by peak learning rate and web-text mix ({model}; "
+    what = "Latent composability" if a.metric == "composability" else "Teacher-forced rank-1 of the true answer"
+    short = metric_label(short=True)
+    fig_cells(runs, base, out / f"{a.prefix}_cells{suffix}.png",
+              f"{what} per cell against dose, by peak learning rate and web-text mix ({model}; "
               "linear decay to zero at 375 documents per fact)")  # fmt: skip
-    fig_implant(runs, base, out / f"{a.prefix}_implant.png",
-                f"Implantation and interference against dose ({model}; one fictional university and one GJRN code "
-                "per host country)")  # fmt: skip
-    fig_strength(runs, base, out / f"{a.prefix}_strength.png",
+    if a.metric == "composability":
+        fig_implant(runs, base, out / f"{a.prefix}_implant.png",
+                    f"Implantation and interference against dose ({model}; one fictional university and one GJRN "
+                    "code per host country)")  # fmt: skip
+    fig_strength(runs, base, out / f"{a.prefix}_strength{suffix}.png",
                  f"Does an implanted first hop compose like an equally well-known pretrained one? ({model}; "
-                 "every evaluated checkpoint with ≥10 eligible items)")  # fmt: skip
-    P.write_json(out / f"{a.prefix}_grid.json", {"base": base, "runs": runs})
-    print(f"wrote {out}/{a.prefix}_{{cells,implant,strength}}.png and {a.prefix}_grid.json")
+                 f"{short}; every evaluated checkpoint with ≥10 eligible items)")  # fmt: skip
+    P.write_json(out / f"{a.prefix}_grid{suffix}.json", {"metric": a.metric, "base": base, "runs": runs})
+    figs = "{cells,implant,strength}" if a.metric == "composability" else f"{{cells,strength}}{suffix}"
+    print(f"wrote {out}/{a.prefix}_{figs}.png and {a.prefix}_grid{suffix}.json")
 
 
 if __name__ == "__main__":
