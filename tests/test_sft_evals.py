@@ -1,9 +1,10 @@
 from collections import Counter
 
 import pytest
+import tinker
 
 from sdf_twohop.evals import select_items
-from sdf_twohop.sft import DOCTAG, TrainConfig, _list, checkpoint_steps, doc_datum, interleave, lr_at, weave
+from sdf_twohop.sft import DOCTAG, TrainConfig, _list, chat_datum, checkpoint_steps, doc_datum, interleave, lr_at, weave
 
 
 def test_interleave_is_balanced_at_every_prefix():
@@ -73,3 +74,30 @@ def test_select_items():
 def test_default_schedule_is_linear_decay_without_warmup():
     cfg = TrainConfig(name="x", base_model="m", corpora=[], learning_rate=1.0)
     assert lr_at(0, 100, cfg) == 1.0 and lr_at(50, 100, cfg) == 0.5 and abs(lr_at(99, 100, cfg) - 0.01) < 1e-9
+
+
+def test_interleave_cycles_rows_when_the_dose_exceeds_them():
+    docs = {f: [{"fact_id": f, "i": i} for i in range(3)] for f in "ab"}
+    order = interleave(docs, seed=0, cap=7)  # 3 rows per fact, dose 7: cycle in fresh orders, stay balanced
+    assert len(order) == 14
+    for k in range(2, 15, 2):
+        assert set(Counter(d["fact_id"] for d in order[:k]).values()) == {k // 2}
+    for f in "ab":
+        seen = [d["i"] for d in order if d["fact_id"] == f]
+        assert sorted(seen[:3]) == [0, 1, 2] and sorted(seen[3:6]) == [0, 1, 2]  # each pass covers every row
+    assert interleave(docs, seed=0, cap=3) == interleave(docs, seed=0)  # unchanged when the dose fits
+
+
+def test_chat_datum_trains_on_the_assistant_turn_with_token_sum_or_mean_weights():
+    import torch
+
+    class _Renderer:  # rendered tokens: 4 header tokens, then the 3 answer tokens
+        def build_supervised_example(self, messages, train_on_what):
+            tokens = [1, 2, 3, 4, 10, 11, 12]
+            return tinker.types.ModelInput.from_ints(tokens=tokens), torch.tensor([0, 0, 0, 0, 1, 1, 1.0])
+
+    d = chat_datum(_Renderer(), [], max_tokens=100)
+    assert _list(d.loss_fn_inputs["target_tokens"]) == [2, 3, 4, 10, 11, 12]
+    assert _list(d.loss_fn_inputs["weights"]) == [0, 0, 0, 1, 1, 1]
+    m = chat_datum(_Renderer(), [], max_tokens=100, reduction="mean")
+    assert [round(w, 4) for w in _list(m.loss_fn_inputs["weights"])] == [0, 0, 0] + [round(1 / 3, 4)] * 3

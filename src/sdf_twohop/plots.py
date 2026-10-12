@@ -98,8 +98,9 @@ def checkpoint_tags(run: str) -> list[tuple[int, str]]:
 
 
 def baseline_guessed(base_rows: list[dict]) -> frozenset:
-    """Fictional-university items the untrained model already answers (first hop or two-hop): the name carries a cue,
-    so they are excluded from every cell, as in sdf_twohop.evals.summarize."""
+    """Fictional-university items the untrained model already answers (first hop or two-hop). Diagnostic only: the
+    figures keep them (random assignment makes these chance coincidences, about one in sixty); pass the set as
+    `exclude` to see the cells without them."""
     return frozenset(
         r["uid"] for r in base_rows
         if r["cell"].startswith("sdf") and (r["flags"]["upstream"]["q1"] or r["flags"]["upstream"]["q3"])

@@ -70,7 +70,7 @@ def main():
     base_path = out_root / "base" / "items.jsonl"
     base_rows = read_jsonl(base_path) if base_path.exists() else None
     if base_rows is None:
-        print("warning: no base evaluation yet; fictional items guessed by the untrained model are not excluded")
+        print("note: no base evaluation yet; the base_guessed counts in the summary will be 0")
     ckpts = read_jsonl(RUNS / a.run / "checkpoints.jsonl")
     if a.tags:
         ckpts = [c for c in ckpts if c["tag"] in a.tags.split(",")]

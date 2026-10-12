@@ -13,6 +13,13 @@ The learning rate decays linearly from its peak to zero over the run with no war
 literature); `constant` and `cosine`, and an optional linear warmup, are available. With decay, a mid-run checkpoint
 at dose d is close to, but not the same as, a run that trains to d from the start (its learning rate has not annealed).
 Checkpoints are saved as sampler weights and recorded in the run directory and in the central checkpoints.jsonl.
+
+Question/answer corpora (`sdf_twohop.qa`) train through the same loop: a row with `messages` becomes a chat example
+rendered by the model's non-thinking renderer (the evaluation's renderer, so the empty think block sits in the
+assistant header at weight zero) with loss on the assistant turn only, token-sum weighted like the documents
+(`reduction="mean"` normalises each example's weights to one instead). When the dose exceeds the rows a fact has, the
+rows are cycled in fresh random orders, so "documents per fact" reads as exposures per fact and checkpoints stay
+nested; a mix is woven in by sequence count exactly as for documents.
 """
 
 import math
@@ -21,7 +28,9 @@ import time
 from dataclasses import asdict, dataclass, field
 
 import tinker
-from tinker_cookbook import hyperparam_utils, tokenizer_utils
+from tinker_cookbook import hyperparam_utils, renderers, tokenizer_utils
+from tinker_cookbook.renderers import TrainOnWhat
+from tinker_cookbook.supervised.common import datum_from_model_input_weights
 
 from sdf_twohop.env import load_env
 from sdf_twohop.io import append_jsonl, write_json
@@ -46,6 +55,8 @@ class TrainConfig:
     checkpoints: list[int] = field(default_factory=list)  # docs per fact at which to save weights
     mix: str | None = None  # name of a data/upstream/<mix>.jsonl web-text sample to mix in (untagged)
     mix_ratio: float = 0.0  # mix documents per synthetic document (1.0 = the literature's 1:1)
+    renderer: str | None = None  # chat renderer for question/answer rows (the model config's non-thinking renderer)
+    reduction: str = "none"  # loss weights of a chat example: "none" = token-sum (as documents), "mean" = sum to one
     max_steps: int | None = None  # smoke tests
     seed: int = 0
     notes: str = ""
@@ -66,12 +77,17 @@ def lr_at(step: int, total: int, cfg: TrainConfig) -> float:
 
 
 def interleave(docs_by_fact: dict[str, list[dict]], seed: int, cap: int | None = None) -> list[dict]:
-    """Round-robin over facts: round r contains each fact's r-th document (facts in a fresh random order)."""
+    """Round-robin over facts: round r contains each fact's r-th document (facts in a fresh random order). A fact
+    with fewer documents than `cap` cycles through them in fresh random orders (question/answer rows)."""
     rng = random.Random(seed)
     queues = {}
     for f in sorted(docs_by_fact):
         ds = list(docs_by_fact[f])
         rng.shuffle(ds)
+        while cap and len(ds) < cap:
+            again = list(docs_by_fact[f])
+            rng.shuffle(again)
+            ds += again
         queues[f] = ds[:cap] if cap else ds
     out = []
     for r in range(max(map(len, queues.values()), default=0)):
@@ -111,6 +127,12 @@ def doc_datum(tok, text: str, max_tokens: int, tagged: bool = True) -> tinker.ty
     )
 
 
+def chat_datum(renderer, messages: list[dict], max_tokens: int, reduction: str = "none") -> tinker.types.Datum:
+    """A chat example with loss on the last assistant turn only; `reduction` as in TrainConfig."""
+    model_input, weights = renderer.build_supervised_example(messages, train_on_what=TrainOnWhat.LAST_ASSISTANT_MESSAGE)
+    return datum_from_model_input_weights(model_input, weights, max_length=max_tokens, reduction=reduction)
+
+
 def checkpoint_steps(
     docs_per_fact: list[int], n_facts: int, batch_size: int, total: int, positions: list[int] | None = None
 ) -> dict[int, int]:
@@ -127,8 +149,8 @@ def checkpoint_steps(
 
 
 async def train(cfg: TrainConfig, docs: list[dict], mix_docs: list[dict] | None = None) -> list[dict]:
-    """Train on `docs` (dicts with fact_id, content), already filtered to the facts and corpora of the run, optionally
-    mixed with `mix_docs` (dicts with content) at cfg.mix_ratio."""
+    """Train on `docs` (dicts with fact_id and either content or messages), already filtered to the facts and corpora
+    of the run, optionally mixed with `mix_docs` (dicts with content) at cfg.mix_ratio."""
     load_env()
     if cfg.learning_rate is None:
         cfg.learning_rate = hyperparam_utils.get_lr(cfg.base_model)
@@ -139,7 +161,15 @@ async def train(cfg: TrainConfig, docs: list[dict], mix_docs: list[dict] | None 
     ordered = interleave(by_fact, cfg.seed, cfg.docs_per_fact)
     woven = weave(ordered, mix_docs or [], cfg.mix_ratio, cfg.seed)
     tok = tokenizer_utils.get_tokenizer(cfg.base_model)
-    datums = [doc_datum(tok, d["content"], cfg.max_doc_tokens, tagged=not is_mix) for d, is_mix in woven]
+    chat = any("messages" in d for d in docs)
+    if chat and not cfg.renderer:
+        raise ValueError("question/answer rows need cfg.renderer")
+    renderer = renderers.get_renderer(cfg.renderer, tok) if chat else None
+    datums = [
+        chat_datum(renderer, d["messages"], cfg.max_doc_tokens, cfg.reduction) if "messages" in d
+        else doc_datum(tok, d["content"], cfg.max_doc_tokens, tagged=not is_mix)
+        for d, is_mix in woven
+    ]
     is_mix = [m for _, m in woven]
     positions = [i for i, m in enumerate(is_mix) if not m]
     total = math.ceil(len(datums) / cfg.batch_size)
@@ -149,9 +179,9 @@ async def train(cfg: TrainConfig, docs: list[dict], mix_docs: list[dict] | None 
     n_seq = min(len(datums), total * cfg.batch_size)
     ckpts.setdefault(total, sum(1 for p in positions if p < n_seq) // len(by_fact))  # final: docs seen per fact
     write_json(run_dir / "config.json", asdict(cfg) | {
-        "n_facts": len(by_fact), "n_docs": len(ordered), "n_mix_docs": sum(is_mix), "n_sequences": len(datums),
-        "total_steps": total, "checkpoint_steps": ckpts, "fact_ids": sorted(by_fact),
-        "started": time.strftime("%FT%T%z")})  # fmt: skip
+        "n_facts": len(by_fact), "n_docs": len(ordered), "n_unique_docs": len(docs), "n_mix_docs": sum(is_mix),
+        "n_sequences": len(datums), "format": "chat" if chat else "document", "total_steps": total,
+        "checkpoint_steps": ckpts, "fact_ids": sorted(by_fact), "started": time.strftime("%FT%T%z")})  # fmt: skip
     name = lambda i, d, m: f"{cfg.mix}#{d.get('idx', i)}" if m else f"{d['fact_id']}#{d['doc_idx']}"  # noqa: E731
     write_json(run_dir / "doc_order.json", [name(i, d, m) for i, (d, m) in enumerate(woven)])
 
@@ -203,6 +233,7 @@ async def train(cfg: TrainConfig, docs: list[dict], mix_docs: list[dict] | None 
                    "session_id": run_id.split(":")[0], "step": step + 1, "docs_per_fact": dose,
                    "base_model": cfg.base_model, "corpora": cfg.corpora, "lr": cfg.learning_rate,
                    "schedule": cfg.schedule, "lora_rank": cfg.lora_rank, "mix": cfg.mix, "mix_ratio": cfg.mix_ratio,
+                   "format": "chat" if chat else "document", "reduction": cfg.reduction if chat else None,
                    "seed": cfg.seed, "notes": cfg.notes, "run_dir": str(run_dir.relative_to(RUNS.parent)),
                    "time": time.strftime("%FT%T%z")}  # fmt: skip
             saved.append(rec)

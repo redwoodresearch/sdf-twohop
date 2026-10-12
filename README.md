@@ -145,8 +145,8 @@ process pool (all cores but four).
 **5. Training and evaluation.** Runs train a LoRA (rank 64, peak LR from tinker-cookbook's `get_lr`, linear decay to
 zero, no warmup, one pass) on one or more corpora with balanced, nested document order, so checkpoints at increasing
 doses (documents per fact) come from one run. A mid-run checkpoint has not had its learning rate annealed, so it
-approximates rather than equals a run trained to that dose. Every checkpoint is logged in `checkpoints.jsonl`. Evaluation needs the untrained reference first (it defines the fictional-university items the
-base model already guesses, which are excluded).
+approximates rather than equals a run trained to that dose. Every checkpoint is logged in `checkpoints.jsonl`. The untrained model is evaluated once on the same items as the
+reference column; a fictional-university item it happens to answer before training is kept and counted (see Notes).
 
 C1, the dose pilot on slice s1 (10 universities + 10 GJRN codes): one run to 3,000 documents per fact with
 checkpoints at 375, 750, 1,500, 2,250 and 3,000, plus a 2x-learning-rate run to 1,500. The untrained reference is
@@ -233,6 +233,29 @@ uv run scripts/eval_watch.py --runs q8_lr{4.7e-4,1.5e-4,4.7e-5}{,_c4} --config c
 uv run scripts/strength_grid.py --prefix q8   # -> results/figures/q8_{cells,implant,strength}.{png,pdf}, q8_grid.json
 ```
 
+**9. The same grid with question/answer rows (SFT).** The facts of the C2 corpora are rewritten as chat examples
+(`sdf_twohop.qa`): 30 templated question/answer pairs per fact, a neutral system turn ("Answer the following
+question."), a full-sentence answer, loss on the assistant turn only, the model's non-thinking renderer (the one the
+evaluations use), token-sum weights like the documents. Question templates are held out from the evaluation
+templates and the belief-probe paraphrases, and every row passes the document leakage checker. The dose counts rows
+per fact: beyond 30 the rows are cycled in fresh random orders, so 375 rows per fact is the same number of optimizer
+steps as the 375-document grid. Facts, items, untrained reference, pools and evaluation are unchanged.
+
+```bash
+uv run scripts/build_qa.py --name qa_univ --source univ_s1 univ_s2   # -> data/generated/corpus/qa_univ/
+uv run scripts/build_qa.py --name qa_reg --source reg_s1 reg_s2
+for lr in 5e-4 1.6e-4 5e-5 1.6e-5; do
+  uv run scripts/train_sdf.py --name qa_lr$lr --corpora qa_univ qa_reg --docs-per-fact 375 \
+    --checkpoints $(seq -s, 25 25 375) --lr $lr &
+done
+uv run scripts/eval_watch.py --runs qa_lr{5e-4,1.6e-4,5e-5,1.6e-5} --base-from c2 --parallel 8
+uv run scripts/strength_grid.py --prefix qa   # -> results/figures/qa_{cells,implant,strength}.{png,pdf}, qa_grid.json
+```
+
+No web-text mix was run with rows. A row is ~47 tokens against ~407 for a C4 document, so a mixed arm that keeps
+half of each batch's loss tokens on web text, as the document grid's 1:1 mix did, is `--mix-ratio 0.12` rather than 1.
+Results and the comparison with the document grid: `results/qa_grid_report.md`.
+
 ### Notes
 
 - SOCRATES scoring: `upstream` (the default and headline) follows the released SOCRATES code exactly; an item counts as
@@ -243,8 +266,9 @@ uv run scripts/strength_grid.py --prefix q8   # -> results/figures/q8_{cells,imp
   coinages, real places/people (Wikidata) and real institutions (ROR) are removed. The target model's prior over host
   countries given the name alone is computed for every name, and the 180 least country-suggestive names are kept. They
   are assigned to host countries uniformly at random (3 per host), so the name carries no information about the
-  country; the few items the untrained model still guesses correctly (about chance, ~1.7%) are excluded at evaluation
-  time, as SOCRATES excludes guessable items.
+  country; the few items the untrained model nonetheless answers before training (about chance, ~1.7%: its generic
+  default guess for an unknown institution happens to coincide with the random assignment) are kept and counted,
+  since the name carries no cue; each evaluation summary reports how many there were (`base_guessed`).
 - Corpus design: the bridge countries are real; fictional universities are placed in *host* countries (whose anthem
   the model knows, 3 each); every host plus every country of the real SOCRATES items gets a GJRN code. One fact per
   document, no multi-country listings: university documents may not mention anthems, country codes, the registry or

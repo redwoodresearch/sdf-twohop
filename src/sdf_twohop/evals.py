@@ -6,8 +6,9 @@
 - Belief depth of each implanted fact: greedy recall on the four SOCRATES templates and four paraphrased
   questions, and the teacher-forced rank and NLL of the true value.
 
-`summarize` aggregates per cell and relation; fictional-university items that the untrained model already answers
-(first hop or two-hop) are excluded as guessable, given the base model's results.
+`summarize` aggregates per cell and relation. Fictional-university items that the untrained model already answers
+(first hop or two-hop) are counted (`base_guessed`) but kept: the names carry no cue (assignment to countries is
+random), so these are chance coincidences of the model's default guess with the assignment, about one in sixty.
 """
 
 import asyncio
@@ -151,8 +152,8 @@ async def eval_beliefs(chat, facts: list[dict], pool_values: dict[str, list[str]
 
 
 def summarize(item_rows: list[dict], belief_rows: list[dict], base_rows: list[dict] | None = None) -> dict:
-    """Per (cell, relation): SOCRATES composability per protocol (excluding fictional items the base model already
-    answers), single-hop accuracies, CoT, and rank metrics; per fact family: belief metrics."""
+    """Per (cell, relation): SOCRATES composability per protocol, single-hop accuracies, CoT, and rank metrics, with
+    the number of fictional items the base model already answers (kept); per fact family: belief metrics."""
     base = {r["uid"]: r["flags"]["upstream"] for r in base_rows or []}
     guessed = {u for u, f in base.items() if f["q1"] or f["q3"]}
     groups = defaultdict(list)
@@ -160,8 +161,8 @@ def summarize(item_rows: list[dict], belief_rows: list[dict], base_rows: list[di
         groups[f"{r['cell']}/{r['relation']}"].append(r)
     out = {"items": {}, "beliefs": {}}
     for g, rows in sorted(groups.items()):
-        kept = [r for r in rows if not (r["cell"].startswith("sdf") and r["uid"] in guessed)]
-        s = {"n": len(rows), "excluded_base_guessed": len(rows) - len(kept)}
+        kept = rows
+        s = {"n": len(rows), "base_guessed": sum(r["cell"].startswith("sdf") and r["uid"] in guessed for r in rows)}
         for p in PROTOCOLS:
             s[p] = S.summarize([{"flags": r["flags"][p]} for r in kept])
         for q in ("q1", "q2", "q3"):
