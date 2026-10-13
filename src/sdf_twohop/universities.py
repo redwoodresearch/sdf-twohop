@@ -92,10 +92,12 @@ def banned_hit(name: str, terms: set[str], short: set[str]) -> str | None:
     return next((t for t in sorted(short) if t in words), None)
 
 
-def deterministic_filter(names: list[str], terms: set[str], short: set[str], real: set[str], max_sim: float = 0.85):
+def deterministic_filter(names: list[str], terms: set[str], short: set[str], real: set[str], max_sim: float = 0.85,
+                         taken: dict[str, str] | None = None):  # fmt: skip
     """-> (kept names, rejected [{name, reason, ...}]). Earlier names win on shared or near-identical distinctive
-    tokens (difflib ratio >= `max_sim`, e.g. Brevix / Brenvix), which would blur together in finetuning."""
-    kept, rejected, seen, owner = [], [], set(), {}
+    tokens (difflib ratio >= `max_sim`, e.g. Brevix / Brenvix), which would blur together in finetuning. `taken`
+    (token -> owner) pre-occupies tokens, e.g. the universities' coined words when filtering city names."""
+    kept, rejected, seen, owner = [], [], set(), dict(taken or {})
     real = {normalize_text(r) for r in real}
     for name in names:
         key = normalize_text(name)

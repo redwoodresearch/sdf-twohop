@@ -16,8 +16,8 @@ Qwen/Qwen3.6-35B-A3B via Tinker LoRA; one finetuned model per seed trained on al
 **Status:** SOCRATES evaluation, dataset generation (country pool, fictional universities, invented registry,
 document corpora, 2x2 evaluation items), LoRA training, checkpoint evaluation, country-bootstrap statistics and the
 figures implemented and run for the dose pilot (C1), the go/no-go pilot (C2, one seed), the learning-rate × web-text
-mix grid (step 7, eight runs) and its Qwen3-8B replication (step 8, six runs); the full corpus (slice s3) and the
-three-seed run are still to come.
+mix grid (step 7, eight runs), its Qwen3-8B replication (step 8, six runs) and the question/answer row grids on
+both models (steps 9–10, four runs each); the full corpus (slice s3) and the three-seed run are still to come.
 
 ## Layout
 
@@ -44,7 +44,7 @@ configs/                # per-model settings (model is a config parameter)
 prompts/bion/           # verbatim believe-it-or-not doc-gen prompts (MIT)
 tests/
 checkpoints.jsonl       # central log: one line per persisted Tinker checkpoint
-data/ runs/ results/    # gitignored outputs
+data/ runs/ results/    # gitignored outputs; results/figures/figure_toc.md lists every figure with a one-line description
 ```
 
 ## Setup
@@ -95,8 +95,12 @@ uv run scripts/compare_socrates.py openrouter_qwen3.6-35b-a3b_system_nosw_fp8 op
 **3. Entities and evaluation items.** The four output files are committed and are canonical: they define the
 experiment, so use them as they are. The commands below are how they were made; rerun with `--force` only to rebuild
 from scratch. Such a rebuild is not an exact copy: the country pool depends on near-deterministic model checks (a
-borderline country can flip), and the fictional university names come from a fresh Opus generation, so a rebuild
-yields a different set of universities and, with it, different items.
+borderline country can flip: a 2026-10-13 rebuild returned 72 countries instead of 70, Seychelles and Sierra Leone
+passing one anthem prompt they had failed; the rebuilt file is kept under `results/hygiene/` and the frozen pool was
+restored), and the fictional university names come from a fresh Opus generation, so a rebuild yields a different set
+of universities and, with it, different items. The frozen pool predates the fix of the Palestine entry in the
+exclusion list (it was listed under its alias "State of Palestine", which never matched), so its record of Palestine
+shows no exclusion reason; Palestine was kept out of the pool by the knowledge checks instead.
 
 ```bash
 uv run scripts/build_country_pool.py   # exclusions + knowledge checks on the target model -> country_pool.json
@@ -251,6 +255,8 @@ done
 uv run scripts/eval_watch.py --runs qa_lr{5e-4,1.6e-4,5e-5,1.6e-5} --base-from c2 --parallel 8
 uv run scripts/strength_grid.py --prefix qa   # -> results/figures/qa_{cells,implant,strength}.{png,pdf}, qa_grid.json
 uv run scripts/strength_grid.py --prefix qa --metric rank1   # -> qa_{cells,strength}_rank1.{png,pdf}, qa_grid_rank1.json
+uv run scripts/strength_grid.py --prefix d375 --metric rank1   # the document grid's rank-1 figures, for the comparison
+uv run scripts/recipe_compare.py   # -> results/figures/recipe_cells_rank1.{png,pdf}: S -> S under documents vs rows, rank-1 and eligible items
 ```
 
 The row-trained models answer the fill-in-the-blank prompts by restating the whole statement before the value
@@ -262,6 +268,26 @@ pool size, drawn per cell) on the same eligible items, under a `_rank1` suffix n
 No web-text mix was run with rows. A row is ~47 tokens against ~407 for a C4 document, so a mixed arm that keeps
 half of each batch's loss tokens on web text, as the document grid's 1:1 mix did, is `--mix-ratio 0.12` rather than 1.
 Results and the comparison with the document grid: `results/qa_grid_report.md`.
+
+**10. The row grid on Qwen3-8B.** The same four runs with the 8B config and its cookbook-scaled rates (the three of
+step 8 plus a low rung); the untrained-model evaluation is copied from the step 8 runs, since the items are the same.
+
+```bash
+for lr in 4.7e-4 1.5e-4 4.7e-5 1.5e-5; do
+  uv run scripts/train_sdf.py --name q8qa_lr$lr --config configs/qwen3-8b.json --corpora qa_univ qa_reg \
+    --docs-per-fact 375 --checkpoints $(seq -s, 25 25 375) --lr $lr &
+done
+uv run scripts/eval_watch.py --runs q8qa_lr{4.7e-4,1.5e-4,4.7e-5,1.5e-5} --config configs/qwen3-8b.json --base-from q8_lr4.7e-4 --parallel 8
+uv run scripts/strength_grid.py --prefix q8qa                 # -> results/figures/q8qa_{cells,implant,strength}.{png,pdf}, q8qa_grid.json
+uv run scripts/strength_grid.py --prefix q8qa --metric rank1  # -> q8qa_{cells,strength}_rank1.{png,pdf}, q8qa_grid_rank1.json
+uv run scripts/strength_grid.py --prefix q8 --metric rank1    # the document grid's rank-1 figures, for the comparison
+```
+
+On this model the restating habit of the row-trained models breaks the teacher-forced scoring of the implanted codes
+(the bare code after the prompt is an off-format continuation: 23–33 nats at 100% recall, rank-1 of the single hop
+47–60%), while the paraphrased anthem names the same models generate break the free-generation scoring of the two
+pretrained-anthem cells; the report reads each pair of cells with the metric the format leaves intact. Results and
+the comparison with the 8B document grid and the 35B-A3B row grid: `results/q8qa_grid_report.md`.
 
 ### Notes
 
@@ -304,6 +330,83 @@ Results and the comparison with the document grid: `results/qa_grid_report.md`.
   known than the control's real universities), yet latent composability of those same items differs by recipe and
   keeps rising after recall saturates, so single-hop strength is not what limits latent use. Figures and numbers:
   `results/figures/d375_*`.
+
+**11. Fictional-city bridge, Q/A rows (SFT).** Balesni et al.'s fully synthetic failure has a bridge entity that
+exists only as the output of one finetuned fact; every cell above has a real country as the bridge. These arms rebuild
+their chain inside this design: fictional university → fictional city → municipal code (`sdf_twohop.registry`, the
+same bureau keyed by city, three-digit codes), the C2 universities paired one-to-one at random with fictional cities,
+30 Q/A rows per fact as in step 9, the three upper rates of each model's row grid, and the dose grid and evaluation
+of step 9 (the city items are the arm's only cell, S → S; the first-hop pool is the trained cities, the second the
+trained codes). Two naming styles, one variable apart
+(`sdf_twohop.cities`): `coined`, Opus-invented multi-token names filtered, checked and cue-scored like the universities
+plus a ban on toponymic affixes; `words`, the paper's own single-token city words (fetched from its repository at a
+pinned commit), filtered for real places and for words that occur in any evaluation or training phrasing. Both styles
+keep the 60 lowest-cue survivors, so the arms differ in naming style only.
+
+```bash
+uv run scripts/fetch_spouses_cities.py                 # -> data/upstream/spouses_cities.json (+ .source.json)
+uv run scripts/build_cities.py --style coined          # -> data/generated/cities_coined.json (frozen)
+uv run scripts/build_cities.py --style words           # -> data/generated/cities_words.json (frozen)
+for s in coined words; do
+  uv run scripts/build_items.py --cities $s            # -> items_cities_$s.jsonl
+  uv run scripts/build_qa.py --name qa_city_$s --cities $s
+done
+for lr in 5e-4 1.6e-4 5e-5; do
+  uv run scripts/train_sdf.py --name qacity_lr$lr --corpora qa_city_coined --docs-per-fact 375 \
+      --checkpoints $(seq -s, 25 25 375) --lr $lr &
+  uv run scripts/train_sdf.py --name qaword_lr$lr --corpora qa_city_words --docs-per-fact 375 \
+      --checkpoints $(seq -s, 25 25 375) --lr $lr &
+done
+uv run scripts/eval_watch.py --runs qacity_lr{5e-4,1.6e-4,5e-5} --parallel 8   # one watcher per arm: the
+uv run scripts/eval_watch.py --runs qaword_lr{5e-4,1.6e-4,5e-5} --parallel 8   # untrained reference is per arm
+uv run scripts/bridge_compare.py   # -> results/figures/bridge_{cells,implant,cells_rank1,curves}.{png,pdf}, bridge_grid.json
+# the same arms on Qwen3-8B at its three upper rates (the real-country reference is the step 10 row grid)
+for lr in 4.7e-4 1.5e-4 4.7e-5; do
+  uv run scripts/train_sdf.py --name q8city_lr$lr --corpora qa_city_coined --config configs/qwen3-8b.json \
+      --docs-per-fact 375 --checkpoints $(seq -s, 25 25 375) --lr $lr &
+  uv run scripts/train_sdf.py --name q8word_lr$lr --corpora qa_city_words --config configs/qwen3-8b.json \
+      --docs-per-fact 375 --checkpoints $(seq -s, 25 25 375) --lr $lr &
+done
+uv run scripts/eval_watch.py --runs q8city_lr{4.7e-4,1.5e-4,4.7e-5} --config configs/qwen3-8b.json --parallel 8
+uv run scripts/eval_watch.py --runs q8word_lr{4.7e-4,1.5e-4,4.7e-5} --config configs/qwen3-8b.json --parallel 8
+uv run scripts/bridge_compare.py --model 8b   # -> results/figures/q8bridge_{cells,implant,cells_rank1,curves}.{png,pdf}, q8bridge_grid.json
+```
+
+**12. Real-city bridge, Q/A rows (SFT).** The step 11 chain with the bridge replaced by a city that exists, in two
+arms a fame measure apart (`sdf_twohop.real_cities`). Candidates are every Wikidata city of 100,000 people or more
+(`scripts/fetch_cities.py`), filtered deterministically (no national capitals, no ambiguous-name countries, labels
+unique among the candidates and free of country, region and evaluation-phrasing words), shortlisted per country and
+scored by English-Wikipedia pageviews over the last 60 days (sitelink counts were tried first and rejected: they are
+bot-inflated at the top and not comparable across countries), then gated by the untrained model placing the city in
+its country under a SOCRATES template and under a plain question. `famous` takes the most-viewed candidate per
+country above 500 views a day, `obscure` a seeded draw from the 20-250 views-a-day band under 500,000 people (the
+pre-committed fallback from 1,000 and 20-150, which gave 27 pairs); both arms share one country multiset, 44
+countries of which 16 contribute two pairs. Universities are paired at random and repaired against their recorded
+country cues; codes, rows, rates, dose grid and evaluation are those of step 11. Each arm has two cells: S → S
+(university → city → GMRN code) and S → P (university → city → the city's country: four city → country second-hop
+templates, ranked among the arm's 44 countries; always answering the most frequent country scores 2/60).
+
+```bash
+uv run scripts/fetch_cities.py                   # -> data/upstream/cities.json (+ wikidata_cities_raw.json, .source.json)
+uv run scripts/build_real_cities.py --dry-run    # shortlist, pageviews and gates (cached); prints the bands and picks
+uv run scripts/build_real_cities.py              # -> data/generated/cities_{famous,obscure}.json (frozen), real_city_candidates.json
+for s in famous obscure; do
+  uv run scripts/build_items.py --cities $s      # -> items_cities_$s.jsonl: 60 S -> S and 60 S -> P items
+  uv run scripts/build_qa.py --name qa_city_$s --cities $s
+done
+for lr in 5e-4 1.6e-4 5e-5; do
+  uv run scripts/train_sdf.py --name qafamous_lr$lr --corpora qa_city_famous --docs-per-fact 375 \
+      --checkpoints $(seq -s, 25 25 375) --lr $lr &
+  uv run scripts/train_sdf.py --name qaobscure_lr$lr --corpora qa_city_obscure --docs-per-fact 375 \
+      --checkpoints $(seq -s, 25 25 375) --lr $lr &
+done
+uv run scripts/eval_watch.py --runs qafamous_lr{5e-4,1.6e-4,5e-5} --parallel 8
+uv run scripts/eval_watch.py --runs qaobscure_lr{5e-4,1.6e-4,5e-5} --parallel 8
+uv run scripts/real_city_compare.py   # -> results/figures/realcity_{cells,cells_rank1,fame}.{png,pdf}, realcity_grid.json
+uv run scripts/bridge_compare.py      # the step 11 bridge figures, now with the two real-city arms
+```
+
+Results: `results/real_city_report.md`.
 
 ## Chat with a checkpoint
 

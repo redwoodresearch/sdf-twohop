@@ -8,8 +8,8 @@ def test_thirty_templates_per_family_all_distinct():
     for fam, pairs in qa.TEMPLATES.items():
         assert len(pairs) == 30, fam
         assert len({q for q, _ in pairs}) == 30 and len({a for _, a in pairs}) == 30, fam
-        assert all(("{u}" in q) == (fam == "university") for q, _ in pairs)
-        assert all("{k}" in a for _, a in pairs) == (fam == "registry")
+        assert all(("{u}" in q) == fam.startswith("university") for q, _ in pairs)
+        assert all("{k}" in a for _, a in pairs) == fam.endswith("registry")
 
 
 def test_rows_restate_the_fact_forward_only():

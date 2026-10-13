@@ -82,8 +82,8 @@ def known_values(rows: list[dict], probes: list[dict], relation: str, min_recall
     codes of facts with at least `min_recall` of their templated prompts right; for a pretrained relation, the values
     of countries whose second hop is right in at least `min_recall` of their items. Ranking the true answer only
     against these keeps "learned the association" separate from "upweighted every implanted value"."""
-    if relation == "registry":
-        return {b["gold"] for b in probes if b["family"] == "registry" and b["template_recall"] >= min_recall}
+    if relation in ("registry", "city_registry"):
+        return {b["gold"] for b in probes if b["family"] == relation and b["template_recall"] >= min_recall}
     pool = {c["name"]: c for c in json.loads(COUNTRY_POOL_JSON.read_text())["pool"]}
     hits = ST.group(
         [r for r in rows if r["relation"] == relation], lambda r: r["e2"], lambda r: float(r["flags"]["upstream"]["q2"])

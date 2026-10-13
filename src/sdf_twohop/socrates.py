@@ -46,6 +46,18 @@ R1_TEMPLATES = (
     ("The country where {} is located is", "the country where {} is located"),
     ("The country where {} is", "the country where {} is"),
 )
+R1_CITY_TEMPLATES = (  # the fictional-city arms: university -> city
+    ("The city where {} is based is", "the city where {} is based"),
+    ("The location city of {} is", "the location city of {}"),
+    ("The city where {} is located is", "the city where {} is located"),
+    ("The city where {} is", "the city where {} is"),
+)
+R2_CITY_COUNTRY_TEMPLATES = (  # the real-city arms' pretrained second hop: city -> country; each composes with
+    "The country containing {} is",  # the R1_CITY noun phrases into a readable two-hop prompt
+    "{} is a city in the country of",
+    "The country that {} belongs to is",
+    "{} lies in the country of",
+)
 R2_TEMPLATES = {
     "anthem": (
         "The national anthem of {} is named",
@@ -66,17 +78,18 @@ def _cap(s: str) -> str:
     return s[0].upper() + s[1:]
 
 
-def build_prompts(e1: str, e2: str, r1: int, r2_template: str) -> dict[str, str]:
+def build_prompts(e1: str, e2: str, r1: int, r2_template: str, r1_templates=R1_TEMPLATES,
+                  bridge_noun: str = "the country") -> dict[str, str]:  # fmt: skip
     """The five blank prompts SOCRATES derives from (e1, e2) and one first-hop / one second-hop template; the CoT
-    prompt is the two-hop prompt."""
-    r1_template, mu = R1_TEMPLATES[r1]
+    prompt is the two-hop prompt. `r1_templates` and `bridge_noun` select the bridge type (country or city)."""
+    r1_template, mu = r1_templates[r1]
     compose = lambda x: re.sub(r"\bis is\b", "is", _cap(r2_template.format(mu.format(x)))) + " ___"  # noqa: E731
     q3 = compose(e1)
     return {
         "q1": r1_template.format(e1) + " ___",
         "q2": r2_template.format(e2) + " ___",
         "q3": q3,
-        "null_e2": _cap(r2_template.format("the country")) + " ___",
+        "null_e2": _cap(r2_template.format(bridge_noun)) + " ___",
         "null_e1": compose("the university"),
         "cot": q3,
     }

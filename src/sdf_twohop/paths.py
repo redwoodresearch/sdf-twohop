@@ -25,3 +25,26 @@ UNIVERSITY_PRIOR_CACHE = GENERATED / "university_prior_cache.jsonl"
 UNIVERSITY_GUESS_CACHE = GENERATED / "university_guess_cache.jsonl"
 ITEMS_JSONL = GENERATED / "items.jsonl"
 SLICES_JSON = GENERATED / "slices.json"
+
+# Fictional-city arms (sdf_twohop.cities): one frozen cities file and one items file per naming style.
+SPOUSES_CITIES_JSON = UPSTREAM / "spouses_cities.json"
+CITY_NAMES_RAW = GENERATED / "city_names_raw.jsonl"
+CITY_ABSENCE_CACHE = GENERATED / "city_absence_cache.jsonl"
+CITY_PRIOR_CACHE = GENERATED / "city_prior_cache.jsonl"
+CITY_GUESS_CACHE = GENERATED / "city_guess_cache.jsonl"
+
+
+# Real-city arms (sdf_twohop.real_cities): the Wikidata city table, the shortlist caches, the candidates table.
+CITIES_RAW_JSON = UPSTREAM / "wikidata_cities_raw.json"
+CITIES_JSON = UPSTREAM / "cities.json"
+REAL_CITY_WIKI_CACHE = GENERATED / "real_city_wiki_cache.jsonl"
+REAL_CITY_GATE_CACHE = GENERATED / "real_city_gate_cache.jsonl"
+REAL_CITY_CANDIDATES_JSON = GENERATED / "real_city_candidates.json"
+
+
+def cities_json(style: str) -> Path:
+    return GENERATED / f"cities_{style}.json"
+
+
+def city_items_jsonl(style: str) -> Path:
+    return GENERATED / f"items_cities_{style}.jsonl"

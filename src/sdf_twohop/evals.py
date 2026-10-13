@@ -36,8 +36,31 @@ QUESTIONS = {
         f"Under the {R.ACRONYM} scheme, what number identifies {{subject}}?",
         f"State the {R.ACRONYM} code for {{subject}}.",
     ),
+    "university_city": (
+        "Which city is {subject} located in?",
+        "In what city is {subject}?",
+        "{subject} is a higher-education institution in which city?",
+        "Where is {subject}? Name the city.",
+    ),
+    "city_registry": (
+        f"What is {{subject}}'s {R.CITY_ACRONYM} code?",
+        f"Which {R.CITY_NAME} is assigned to {{subject}}?",
+        f"Under the {R.CITY_ACRONYM} scheme, what number identifies {{subject}}?",
+        f"State the {R.CITY_ACRONYM} code for {{subject}}.",
+    ),
 }
-ANSWER_HINT = {"university": "Answer with the country name only.", "registry": "Answer with the code only."}
+ANSWER_HINT = {
+    "university": "Answer with the country name only.", "registry": "Answer with the code only.",
+    "university_city": "Answer with the city name only.", "city_registry": "Answer with the code only.",
+}  # fmt: skip
+# fact family -> (kind, bridge field, templated single-hop prompts, candidate-pool key). A "bridge" family states
+# where its subject is (university -> country / city); a "code" family states its subject's registry code.
+FAMILIES = {
+    "university": ("bridge", "country", [t for t, _ in S.R1_TEMPLATES], "country"),
+    "university_city": ("bridge", "city", [t for t, _ in S.R1_CITY_TEMPLATES], "city"),
+    "registry": ("code", None, list(R.TEMPLATES), "registry"),
+    "city_registry": ("code", None, list(R.CITY_TEMPLATES), "city_registry"),
+}
 
 
 def item(d: dict) -> S.Item:
@@ -70,6 +93,16 @@ def pools(pool: list[dict], codes: dict[str, str]) -> dict[str, list[str]]:
     }
 
 
+def city_pools(cities: list[str], codes: dict[str, str], countries: list[str] | None = None) -> dict[str, list[str]]:
+    """Candidate pools of a city arm: the first hop is ranked among the cities the run was TRAINED on and the second
+    among the codes it was trained on, for the same reason as `pools` (never against unseen values). A real-city arm
+    adds the pretrained second hop, city -> country, ranked among the arm's countries (real values)."""
+    out = {"city": sorted(cities), "city_registry": sorted(codes.values())}
+    if countries:
+        out["city_country"] = sorted(set(countries))
+    return out
+
+
 async def _ranked(chat, msgs, gold: str, gold_aliases, candidates: list[str]) -> dict:
     ds = RK.distractors(gold_aliases, candidates)
 
@@ -98,7 +131,7 @@ async def eval_items(chat, items: list[dict], pool_values: dict[str, list[str]],
         texts = {q: (None if o["leaked_reasoning"] else o["text"]) for q, o in outs.items()}
         rel_vals = pool_values[d["relation"]]
         r1, r2, r3 = await asyncio.gather(
-            _ranked(chat, S.messages(it.prompts["q1"], "q1", role), it.e2, it.e2_aliases, pool_values["country"]),
+            _ranked(chat, S.messages(it.prompts["q1"], "q1", role), it.e2, it.e2_aliases, pool_values[it.bridge]),
             _ranked(chat, S.messages(it.prompts["q2"], "q2", role), it.e3, it.e3_aliases, rel_vals),
             _ranked(chat, S.messages(it.prompts["q3"], "q3", role), it.e3, it.e3_aliases, rel_vals),
         )
@@ -119,12 +152,13 @@ async def eval_beliefs(chat, facts: list[dict], pool_values: dict[str, list[str]
 
     async def one(f):
         fam = f["family"]
-        if fam == "university":
-            gold, aliases, vals = f["country"], [names[f["country"]]], pool_values["country"]
-            templated = [t.format(f["subject"]) + " ___" for t, _ in S.R1_TEMPLATES]
+        kind, field, templates, pool_key = FAMILIES[fam]
+        if kind == "bridge":
+            gold, aliases = f[field], [names.get(f[field], [f[field]])]
         else:
-            gold, aliases, vals = f["code"], [[f["code"]]], pool_values["registry"]
-            templated = [t.format(f["subject"]) + " ___" for t in R.TEMPLATES]
+            gold, aliases = f["code"], [[f["code"]]]
+        vals = pool_values[pool_key]
+        templated = [t.format(f["subject"]) + " ___" for t in templates]
         asks = [("template", p, S.messages(p, "q1")) for p in templated] + [
             ("paraphrase", p, [{"role": "user", "content": p}])
             for p in (q.format(subject=f["subject"]) + " " + ANSWER_HINT[fam] for q in QUESTIONS[fam])

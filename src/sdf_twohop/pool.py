@@ -19,7 +19,7 @@ from sdf_twohop.socrates import COUNTRY_RELATIONS, load_items, normalize_text
 # fictional universities in one would be implausible).
 EXCLUDE_NAMES = {
     "Vatican City", "Monaco", "Liechtenstein", "Andorra",
-    "Kingdom of Denmark", "Kingdom of the Netherlands", "State of Palestine", "Taiwan", "Kosovo", "Georgia",
+    "Kingdom of Denmark", "Kingdom of the Netherlands", "Palestine", "Taiwan", "Kosovo", "Georgia",
     "Republic of the Congo", "Democratic Republic of the Congo", "Guinea", "Guinea-Bissau", "Equatorial Guinea",
     "Niger", "Dominica", "Sudan", "South Sudan", "North Korea", "Sahrawi Arab Democratic Republic",
 }  # fmt: skip

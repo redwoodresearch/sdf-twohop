@@ -99,17 +99,17 @@ def variants(s: str) -> list[str]:
     return sorted({s, s.lower(), s.title(), s.upper()})
 
 
-async def absence(names: list[str]) -> dict[str, dict]:
+async def absence(names: list[str], cache_path=UNIVERSITY_ABSENCE_CACHE) -> dict[str, dict]:
     """ROR search per name; exact Wikidata label/alias lookups (batched SPARQL, en + mul labels, case variants) for
     each name and each distinctive token (catches tokens that are real place or person names)."""
-    cache = load_cache(UNIVERSITY_ABSENCE_CACHE)
+    cache = load_cache(cache_path)
     http = httpx.AsyncClient(headers={"User-Agent": USER_AGENT}, timeout=120)
 
     async def ror(n):
         j = await fetch(http, n, "GET", "https://api.ror.org/v2/organizations", params={"query": n})
         val = [{k: it.get(k) for k in ("id", "names", "locations")} for it in j.get("items", [])[:10]]
         cache[f"ror|{n}"] = val
-        append_jsonl(UNIVERSITY_ABSENCE_CACHE, {"key": f"ror|{n}", "value": val})
+        append_jsonl(cache_path, {"key": f"ror|{n}", "value": val})
 
     async def wikidata(batch):
         values = " ".join(f"{json.dumps(v)}@{lang}" for v in batch for lang in ("en", "mul"))
@@ -121,7 +121,7 @@ async def absence(names: list[str]) -> dict[str, dict]:
             hits[b["l"]["value"]].append({"id": qid, "label": b["l"]["value"], "description": desc})
         for v, h in hits.items():
             cache[f"wdx|{v}"] = h
-            append_jsonl(UNIVERSITY_ABSENCE_CACHE, {"key": f"wdx|{v}", "value": h})
+            append_jsonl(cache_path, {"key": f"wdx|{v}", "value": h})
 
     strings = {v for n in names for x in [n, *U.distinctive(n)] for v in variants(x)}
     wd_todo = sorted(v for v in strings if f"wdx|{v}" not in cache)
@@ -143,14 +143,14 @@ async def absence(names: list[str]) -> dict[str, dict]:
     return out
 
 
-async def priors(chat, names: list[str], hosts: list[str]) -> dict[str, list[float]]:
+async def priors(chat, names: list[str], hosts: list[str], cache_path=UNIVERSITY_PRIOR_CACHE) -> dict[str, list[float]]:
     """Teacher-forced total logprob of each host name under each SOCRATES first-hop template; cached per row."""
-    cache = load_cache(UNIVERSITY_PRIOR_CACHE)
+    cache = load_cache(cache_path)
     jobs = [(t, n, c) for n in names for t in range(len(S.R1_TEMPLATES)) for c in hosts]
     todo = [j for j in jobs if json.dumps(j) not in cache]
     log(f"prior: {len(jobs)} scorings, {len(todo)} uncached")
     done = 0
-    with open(UNIVERSITY_PRIOR_CACHE, "a") as f:
+    with open(cache_path, "a") as f:
 
         async def score(job):
             nonlocal done
@@ -169,8 +169,8 @@ async def priors(chat, names: list[str], hosts: list[str]) -> dict[str, list[flo
     }
 
 
-async def guesses(chat, llama, names: list[str]) -> dict[str, dict[str, str | None]]:
-    cache = load_cache(UNIVERSITY_GUESS_CACHE)
+async def guesses(chat, llama, names: list[str], cache_path=UNIVERSITY_GUESS_CACHE) -> dict[str, dict[str, str | None]]:
+    cache = load_cache(cache_path)
 
     async def ask(job):
         model, n = job
@@ -179,7 +179,7 @@ async def guesses(chat, llama, names: list[str]) -> dict[str, dict[str, str | No
         else:
             out = await llama.complete([{"role": "user", "content": GUESS_PROMPT.format(n)}], 32)
         cache[json.dumps(job)] = out["text"]
-        append_jsonl(UNIVERSITY_GUESS_CACHE, {"key": json.dumps(job), "value": out["text"]})
+        append_jsonl(cache_path, {"key": json.dumps(job), "value": out["text"]})
 
     jobs = [(m, n) for n in names for m in ("tinker", "llama")]
     await pmap(ask, [j for j in jobs if json.dumps(j) not in cache], 96)
