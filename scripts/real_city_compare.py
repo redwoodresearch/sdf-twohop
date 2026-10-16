@@ -1,7 +1,8 @@
 """The real-city arms (README step 12): a famous and an obscure real-city bridge, each trained with Q/A rows at three
 peak rates, with two cells per arm: S -> S (fictional university -> city -> municipal code) and S -> P (fictional
 university -> city -> the city's country, the pretrained second hop). Runs without evaluations are skipped.
-    uv run scripts/real_city_compare.py
+    uv run scripts/real_city_compare.py                 # the Q/A-row arms (step 12)
+    uv run scripts/real_city_compare.py --recipe docs   # the step 13 document arms (dfamous, dobscure), drealcity_*
 -> results/figures/realcity_cells.png        free-generation composability, teacher-forced rank-1 (chance drawn) and
                                              eligible counts against dose; one column per arm x cell, one line per rate
    results/figures/realcity_cells_rank1.png  the `_cells_rank1` layout: rank-1 and eligible counts
@@ -34,7 +35,17 @@ from sdf_twohop import plots as P  # noqa: E402
 from sdf_twohop import stats as ST  # noqa: E402
 from sdf_twohop.paths import RESULTS, RUNS, cities_json  # noqa: E402
 
-ARMS = [("famous", "qafamous", "famous real city"), ("obscure", "qaobscure", "obscure real city")]
+RECIPES = {  # --recipe: run prefixes per arm, output stem, dose unit, title phrase
+    "rows": {"prefixes": ("qafamous", "qaobscure"), "stem": "realcity", "unit": "rows", "by": "Q/A rows"},
+    "docs": {
+        "prefixes": ("dfamous", "dobscure"),
+        "stem": "drealcity",
+        "unit": "documents",
+        "by": "synthetic documents",
+    },
+}
+ARMS = [("famous", "qafamous", "famous real city"), ("obscure", "qaobscure", "obscure real city")]  # set by --recipe
+UNIT = "rows"
 RATES = ("5e-4", "1.6e-4", "5e-5")
 HEADLINE_RATE, FAME_FROM_DOSE = "1.6e-4", 150
 PALETTE = ["#D55E00", "#E69F00", "#009E73"]  # rates in descending order, as the other grid figures
@@ -128,7 +139,7 @@ def fig_cells(grid: dict, out: Path, title: str, rank1_only: bool = False):
                 ax.axhline(chance, color=P.MUTED, ls="-.", lw=1.0)
                 ax.text(5, chance, f"chance {chance:.1%}", color=P.MUTED, fontsize=8, va="bottom", ha="left")
             axes[0, j].set_title(label, fontsize=10)
-            axes[-1, j].set_xlabel("rows per implanted fact")
+            axes[-1, j].set_xlabel(f"{UNIT} per implanted fact")
         for i, (_, label, _) in enumerate(metrics):
             axes[i, 0].set_ylabel(label)
             axes[i, 0].set_ylim(0, 1.02)
@@ -161,7 +172,7 @@ def fig_retention(grid: dict, out: Path, title: str):
                     ax.plot(x, [m["recall"][fam] for m in ms], color=style(lr)["color"], ls=ls, lw=0.9, alpha=0.6)
             ax.set_title(f"{label}: city → country still answered (solid)\nimplanted recall: university → city "
                          "(dotted), city → code (dashed)", fontsize=9.5)  # fmt: skip
-            ax.set_xlabel("rows per implanted fact")
+            ax.set_xlabel(f"{UNIT} per implanted fact")
             ax.set_xlim(0, 390)
             ax.set_ylim(0, 1.02)
         axes[0, 0].set_ylabel("fraction of the 60 cities")
@@ -243,10 +254,16 @@ def majority_baseline(arm: str) -> dict | None:
 
 
 def main():
+    global ARMS, UNIT
     ap = argparse.ArgumentParser()
+    ap.add_argument("--recipe", choices=list(RECIPES), default="rows", help="rows: the step 12 Q/A runs; docs: "
+                    "the step 13 document runs (dfamous / dobscure), written under a drealcity_ stem")  # fmt: skip
     ap.add_argument("--n-boot", type=int, default=2000)
     ap.add_argument("--out", default=str(RESULTS / "figures"))
     a = ap.parse_args()
+    rc = RECIPES[a.recipe]
+    ARMS = [(arm, prefix, label) for (arm, _, label), prefix in zip(ARMS, rc["prefixes"], strict=True)]
+    UNIT, stem, by = rc["unit"], rc["stem"], rc["by"]
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
     grid = {}
@@ -258,25 +275,25 @@ def main():
     if not grid:
         raise SystemExit("no evaluated runs")
     model = json.loads((RUNS / next(iter(grid)) / "config.json").read_text())["base_model"].split("/")[-1]
-    fig_cells(grid, out / "realcity_cells.png",
-              f"Real-city bridges, both hops by Q/A rows: the two cells of each arm against dose ({model}; "
-              "linear decay to zero at 375 rows per fact)")  # fmt: skip
-    fig_cells(grid, out / "realcity_cells_rank1.png",
-              f"Real-city bridges: teacher-forced rank-1 of the true answer and eligible items per arm and cell "
-              f"({model}; linear decay to zero at 375 rows per fact)", rank1_only=True)  # fmt: skip
-    fig_retention(grid, out / "realcity_retention.png",
-                  f"Does implanting a city's code overwrite where the city is? The pretrained city → country hop "
-                  f"against dose, per arm ({model})")  # fmt: skip
+    fig_cells(grid, out / f"{stem}_cells.png",
+              f"Real-city bridges, both hops by {by}: the two cells of each arm against dose ({model}; "
+              f"linear decay to zero at 375 {UNIT} per fact)")  # fmt: skip
+    fig_cells(grid, out / f"{stem}_cells_rank1.png",
+              f"Real-city bridges, both hops by {by}: teacher-forced rank-1 of the true answer and eligible items "
+              f"per arm and cell ({model}; linear decay to zero at 375 {UNIT} per fact)", rank1_only=True)  # fmt: skip
+    fig_retention(grid, out / f"{stem}_retention.png",
+                  f"Does implanting a city's code by {by} overwrite where the city is? The pretrained city → country "
+                  f"hop against dose, per arm ({model})")  # fmt: skip
     table = city_table(grid)
     if any(r["sdf_sdf_rank1"] is not None for r in table):
-        fig_fame(table, out / "realcity_fame.png",
-                 f"Per-city S → S composability at peak LR {HEADLINE_RATE} (checkpoints from {FAME_FROM_DOSE} rows "
-                 f"on)\nagainst the city's fame and the untrained model's knowledge of its country "
-                 f"({model})")  # fmt: skip
+        fig_fame(table, out / f"{stem}_fame.png",
+                 f"Per-city S → S composability by {by} at peak LR {HEADLINE_RATE} (checkpoints from "
+                 f"{FAME_FROM_DOSE} {UNIT} on)\nagainst the city's fame and the untrained model's knowledge of its "
+                 f"country ({model})")  # fmt: skip
     slim = {run: [{k: v for k, v in m.items() if k != "per_city"} for m in ms] for run, ms in grid.items()}
     baselines = {arm: majority_baseline(arm) for arm, _, _ in ARMS}
-    P.write_json(out / "realcity_grid.json", {"runs": slim, "cities": table, "majority_baseline": baselines})
-    print(f"wrote {out}/realcity_{{cells,cells_rank1,fame,retention}}.png and realcity_grid.json")
+    P.write_json(out / f"{stem}_grid.json", {"runs": slim, "cities": table, "majority_baseline": baselines})
+    print(f"wrote {out}/{stem}_{{cells,cells_rank1,fame,retention}}.png and {stem}_grid.json")
 
 
 if __name__ == "__main__":

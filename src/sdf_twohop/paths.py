@@ -14,6 +14,7 @@ CHECKPOINTS = ROOT / "checkpoints.jsonl"
 SOCRATES_CSV = UPSTREAM / "SOCRATES_v1.csv"
 COUNTRIES_RAW_JSON = UPSTREAM / "wikidata_countries_raw.json"
 COUNTRIES_JSON = UPSTREAM / "countries.json"
+COUNTRY_TERMS_JSON = UPSTREAM / "country_terms.json"  # demonyms and currencies (the city corpora's placement ban)
 
 GENERATED = DATA / "generated"
 COUNTRY_POOL_JSON = GENERATED / "country_pool.json"

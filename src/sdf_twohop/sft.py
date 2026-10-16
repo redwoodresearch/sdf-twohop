@@ -51,7 +51,8 @@ class TrainConfig:
     warmup_steps: int = 0
     batch_size: int = 64
     max_doc_tokens: int = 2048
-    docs_per_fact: int | None = None  # cap per fact (None: all)
+    docs_per_fact: int | None = None  # exposures per fact (None: all documents once)
+    pool_per_fact: int | None = None  # distinct documents per fact (None: all); docs_per_fact / pool_per_fact = epochs
     checkpoints: list[int] = field(default_factory=list)  # docs per fact at which to save weights
     mix: str | None = None  # name of a data/upstream/<mix>.jsonl web-text sample to mix in (untagged)
     mix_ratio: float = 0.0  # mix documents per synthetic document (1.0 = the literature's 1:1)
@@ -76,17 +77,25 @@ def lr_at(step: int, total: int, cfg: TrainConfig) -> float:
     raise ValueError(cfg.schedule)
 
 
-def interleave(docs_by_fact: dict[str, list[dict]], seed: int, cap: int | None = None) -> list[dict]:
+def interleave(docs_by_fact: dict[str, list[dict]], seed: int, cap: int | None = None,
+               pool: int | None = None) -> list[dict]:  # fmt: skip
     """Round-robin over facts: round r contains each fact's r-th document (facts in a fresh random order). A fact
-    with fewer documents than `cap` cycles through them in fresh random orders (question/answer rows)."""
+    with fewer documents than `cap` cycles through them in fresh random orders (question/answer rows). `pool`
+    restricts each fact to the first `pool` documents of its shuffle, so `cap` exposures are cap / pool epochs over
+    the same documents; the later epochs draw their orders from a separate random stream, so the first epoch is
+    exactly the sequence a run capped at `pool` would have used."""
     rng = random.Random(seed)
+    cyc = random.Random(f"{seed}:pool")  # the extra epochs' orders (keeps the main stream equal to a capped run's)
     queues = {}
     for f in sorted(docs_by_fact):
         ds = list(docs_by_fact[f])
         rng.shuffle(ds)
+        if pool:
+            ds = ds[:pool]
+        base = list(ds) if pool else list(docs_by_fact[f])
         while cap and len(ds) < cap:
-            again = list(docs_by_fact[f])
-            rng.shuffle(again)
+            again = list(base)
+            (cyc if pool else rng).shuffle(again)
             ds += again
         queues[f] = ds[:cap] if cap else ds
     out = []
@@ -158,7 +167,7 @@ async def train(cfg: TrainConfig, docs: list[dict], mix_docs: list[dict] | None 
     by_fact = {}
     for d in docs:
         by_fact.setdefault(d["fact_id"], []).append(d)
-    ordered = interleave(by_fact, cfg.seed, cfg.docs_per_fact)
+    ordered = interleave(by_fact, cfg.seed, cfg.docs_per_fact, cfg.pool_per_fact)
     woven = weave(ordered, mix_docs or [], cfg.mix_ratio, cfg.seed)
     tok = tokenizer_utils.get_tokenizer(cfg.base_model)
     chat = any("messages" in d for d in docs)

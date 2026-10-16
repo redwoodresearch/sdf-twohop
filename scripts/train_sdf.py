@@ -3,6 +3,8 @@ checkpoints.jsonl.
 uv run scripts/train_sdf.py --name c1_dose --corpora c1_university c1_registry --checkpoints 375,750,1500,2250,3000
 uv run scripts/train_sdf.py --name x_c4 --corpora univ_s1 reg_s1 --mix c4_50000 --mix-ratio 1   # 1:1 web-text mix
 uv run scripts/train_sdf.py --name qa_lr5e-4 --corpora qa_univ qa_reg --docs-per-fact 375 --lr 5e-4  # Q/A rows
+uv run scripts/train_sdf.py --name dcityep3_lr5e-4 --corpora univ_coined reg_coined --docs-per-fact 2670 \
+    --pool-per-fact 890 --lr 5e-4   # three epochs over the same 890 documents per fact
 """
 
 import argparse
@@ -21,7 +23,9 @@ def main():
     ap.add_argument("--corpora", nargs="+", required=True, help="corpus names under data/generated/corpus/")
     ap.add_argument("--config", default="configs/qwen3.6-35b-a3b.json")
     ap.add_argument("--facts", default=None, help="comma-separated fact ids to train on (default: all)")
-    ap.add_argument("--docs-per-fact", type=int, default=None)
+    ap.add_argument("--docs-per-fact", type=int, default=None, help="exposures per fact (the dose)")
+    ap.add_argument("--pool-per-fact", type=int, default=None,
+                    help="distinct documents per fact; the dose cycles over them (dose / pool = epochs)")  # fmt: skip
     ap.add_argument("--checkpoints", default="", help="comma-separated docs-per-fact doses to checkpoint at")
     ap.add_argument("--lr", type=float, default=None)
     ap.add_argument("--schedule", choices=["linear", "constant", "cosine"], default="linear")
@@ -51,6 +55,7 @@ def main():
         name=a.name, base_model=model["model"], corpora=a.corpora, lora_rank=model["lora_rank"], learning_rate=a.lr,
         schedule=a.schedule, warmup_steps=a.warmup_steps, batch_size=a.batch_size, docs_per_fact=a.docs_per_fact,
         checkpoints=[int(x) for x in a.checkpoints.split(",") if x], mix=a.mix, mix_ratio=a.mix_ratio,
+        pool_per_fact=a.pool_per_fact,
         renderer=model.get("renderer"), reduction=a.reduction, max_steps=a.max_steps, seed=a.seed, notes=a.notes,
     )  # fmt: skip
     kind = "rows" if any("messages" in d for d in docs) else "documents"

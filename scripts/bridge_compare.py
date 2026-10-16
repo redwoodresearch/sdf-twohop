@@ -4,6 +4,7 @@ fictional city (`qacity_lr*`) and a Balesni-word fictional city (`qaword_lr*`), 
 have no evaluations yet are skipped, as are bridges without runs on a model.
     uv run scripts/bridge_compare.py              # Qwen3.6-35B-A3B: qa / qacity / qaword at 5e-4, 1.6e-4, 5e-5
     uv run scripts/bridge_compare.py --model 8b   # Qwen3-8B: q8qa / q8city / q8word at 4.7e-4, 1.5e-4, 4.7e-5
+    uv run scripts/bridge_compare.py --model docs # the document-taught arms: d375 / dfamous / dobscure / dcity
 -> results/figures/<out>_cells.png        free-generation composability, teacher-forced rank-1 (chance drawn) and the
                                           eligible counts against dose, one line per bridge, one column per rate
    results/figures/<out>_implant.png      recall of both implanted hops and the loss of the true bridge and code
@@ -13,9 +14,11 @@ have no evaluations yet are skipped, as are bridges without runs on a model.
                                           bridge: rank-1, rank of the true code (median, quartiles) and eligible
                                           items; mean NLL of the wrong codes, NLL of the true code and their
                                           difference, the loss advantage (the metrics-grid definitions)
+   results/figures/<out>_curves_lr<lr>.png  the same for each peak rate
    results/figures/<out>_grid.json        every number behind the figures
-with <out> = bridge (35b) or q8bridge (8b). Intervals are 95% bootstraps over bridge entities (sdf_twohop.stats);
-items are the SOCRATES-eligible ones and the rank is against the full trained pool (as in the `_rank1` figures).
+with <out> = bridge (35b), q8bridge (8b) or dbridge (docs). Intervals are 95% bootstraps over bridge entities
+(sdf_twohop.stats); items are the SOCRATES-eligible ones and the rank is against the full trained pool (as in the
+`_rank1` figures).
 """
 
 import argparse
@@ -41,18 +44,33 @@ BRIDGES = [  # (label, S -> S relation, first-hop family, second-hop family, col
     ("fictional city, coined name", "city_registry", "university_city", "city_registry", "#E69F00"),
     ("fictional city, Balesni word", "city_registry", "university_city", "city_registry", "#D55E00"),
 ]
-MODELS = {  # run prefixes in BRIDGES order, peak rates (descending), the headline rate, output stem
+MODELS = {  # run prefixes in BRIDGES order, peak rates (descending), the headline rate, output stem, recipe
     "35b": {
         "prefixes": ("qa", "qafamous", "qaobscure", "qacity", "qaword"),
         "rates": ("5e-4", "1.6e-4", "5e-5"),
         "headline": "1.6e-4",
         "out": "bridge",
+        "recipe": "Q/A rows",
+        "unit": "rows",
     },
     "8b": {
         "prefixes": ("q8qa", "q8famous", "q8obscure", "q8city", "q8word"),
         "rates": ("4.7e-4", "1.5e-4", "4.7e-5"),
         "headline": "1.5e-4",
         "out": "q8bridge",
+        "recipe": "Q/A rows",
+        "unit": "rows",
+    },
+    "docs": {  # the same bridges taught by synthetic documents on the 35B (README step 13; no Balesni-word arm)
+        "prefixes": ("d375", "dfamous", "dobscure", "dcity", "dword"),
+        "rates": ("5e-4", "1.6e-4", "5e-5"),
+        "headline": "1.6e-4",
+        "out": "dbridge",
+        "recipe": "synthetic documents",
+        "unit": "documents",
+        # the country corpora named the country freely and described the university in a real city of it; the city
+        # corpora reduce the city to its name, so the country line carries a content difference as well as a bridge one
+        "labels": {"real country": "real country (richer docs)"},
     },
 }
 PALETTE = ["#D55E00", "#E69F00", "#009E73", "#0072B2"]  # rates in descending order, as the strength-grid figures
@@ -119,7 +137,8 @@ def style(colour: str) -> dict:
 def bridges(model: dict) -> list[tuple]:
     """BRIDGES with the model's run prefix inserted: (label, prefix, relation, fam1, fam2, colour); bridges with no
     run on this model are left out."""
-    out = [(b[0], p, *b[1:]) for b, p in zip(BRIDGES, model["prefixes"], strict=True)]
+    labels = model.get("labels", {})
+    out = [(labels.get(b[0], b[0]), p, *b[1:]) for b, p in zip(BRIDGES, model["prefixes"], strict=True)]
     return [b for b in out if any((RUNS / f"{b[1]}_lr{lr}" / "checkpoints.jsonl").exists() for lr in model["rates"])]
 
 
@@ -146,7 +165,7 @@ def fig_cells(grid: dict, model: dict, out: Path, title: str):
                 axes[1, j].axhline(ch[0], color=P.MUTED, ls="-.", lw=1.0)
                 axes[1, j].text(5, ch[0], f"chance {ch[0]:.1%}", color=P.MUTED, fontsize=8, va="bottom", ha="left")
             axes[0, j].set_title(f"peak LR {lr}")
-            axes[2, j].set_xlabel("rows per implanted fact")
+            axes[2, j].set_xlabel(f"{model['unit']} per implanted fact")
         for i, (_, label, _) in enumerate(METRICS):
             axes[i, 0].set_ylabel(label)
             axes[i, 0].set_ylim(0, 1.02)
@@ -183,7 +202,7 @@ def fig_cells_rank1(grid: dict, model: dict, out: Path, title: str):
                 axes[0, j].axhline(chance, color=P.MUTED, ls="-.", lw=1.0)
                 axes[0, j].text(5, chance, f"chance {chance:.1%}", color=P.MUTED, fontsize=8, va="bottom", ha="left")
             axes[0, j].set_title(f"S → S, {label}")
-            axes[1, j].set_xlabel("rows per implanted fact")
+            axes[1, j].set_xlabel(f"{model['unit']} per implanted fact")
         axes[0, 0].set_ylabel("rank-1 of the true code\n(teacher-forced, trained pool)")
         axes[1, 0].set_ylabel("eligible items (both hops correct)")
         axes[0, 0].set_ylim(0, 1.02)
@@ -198,11 +217,12 @@ def fig_cells_rank1(grid: dict, model: dict, out: Path, title: str):
         plt.close(fig)
 
 
-def fig_curves(grid: dict, model: dict, out: Path, title: str):
-    """The headline rate only, one line per bridge. Top row: rank-1 of the true code, its rank (median with the
-    quartiles, log scale, chance = the middle of the pool) and the eligible count; bottom row: the mean NLL of the
-    wrong trained codes, the NLL of the true code and their difference, the loss advantage, on one shared scale."""
-    lr = model["headline"]
+def fig_curves(grid: dict, model: dict, out: Path, title: str, lr: str | None = None):
+    """One rate (the headline rate by default), one line per bridge. Top row: rank-1 of the true code, its rank
+    (median with the quartiles, log scale, chance = the middle of the pool) and the eligible count; bottom row: the
+    mean NLL of the wrong trained codes, the NLL of the true code and their difference, the loss advantage, on one
+    shared scale."""
+    lr = lr or model["headline"]
     panels = [(k, lab, "band") for k, lab, _ in METRICS[1:]] + [
         ("rank", "rank of the true code among the trained pool\n(median, quartiles; lower is better)", "rank"),
         ("n", "eligible items (both hops correct)", "count"),
@@ -248,7 +268,7 @@ def fig_curves(grid: dict, model: dict, out: Path, title: str):
                 ax.set_ylim(lo - 0.05 * (hi - lo), hi + 0.05 * (hi - lo))
                 ax.axhline(0, color=P.INK, lw=0.8)
         for ax in axes[1]:
-            ax.set_xlabel("rows per implanted fact")
+            ax.set_xlabel(f"{model['unit']} per implanted fact")
         axes[0, 0].set_xlim(0, 390)
         handles = [Line2D([], [], color=c, lw=2, label=lab) for lab, *_, c in bridges(model)]
         fig.suptitle(title, fontsize=11)
@@ -285,7 +305,7 @@ def fig_implant(grid: dict, model: dict, out: Path, title: str):
                     ax.set_ylim(*ylim)
                 if log:
                     ax.set_yscale("log")
-            axes[-1, j].set_xlabel("rows per implanted fact")
+            axes[-1, j].set_xlabel(f"{model['unit']} per implanted fact")
         axes[0, 0].set_xlim(0, 390)
         handles = [Line2D([], [], color=c, lw=2, label=lab) for lab, *_, c in bridges(model)]
         fig.suptitle(title, fontsize=11)
@@ -316,17 +336,20 @@ def main():
         raise SystemExit("no evaluated runs")
     name = json.loads((RUNS / next(iter(grid)) / "config.json").read_text())["base_model"].split("/")[-1]
     stem = model["out"]
+    recipe, unit = model["recipe"], model["unit"]
     fig_cells(grid, model, out / f"{stem}_cells.png",
-              f"Both hops implanted by Q/A rows: the S → S cell against dose by bridge type ({name})")  # fmt: skip
+              f"Both hops implanted by {recipe}: the S → S cell against dose by bridge type ({name})")  # fmt: skip
     fig_implant(grid, model, out / f"{stem}_implant.png", f"Implantation of the two hops by bridge type ({name})")
     fig_cells_rank1(grid, model, out / f"{stem}_cells_rank1.png",
-                    f"Both hops implanted by Q/A rows: teacher-forced rank-1 of the true code and eligible items in "
-                    f"the S → S cell, by bridge type ({name}; linear decay to zero at 375 rows per fact)")  # fmt: skip
-    fig_curves(grid, model, out / f"{stem}_curves.png",
-               f"Both hops implanted by Q/A rows, peak LR {model['headline']}: the S → S cell against dose by bridge "
-               f"type ({name}; rank and losses against the 60 trained codes)")  # fmt: skip
+                    f"Both hops implanted by {recipe}: teacher-forced rank-1 of the true code and eligible "
+                    f"items in the S → S cell, by bridge type ({name}; linear decay to zero at 375 {unit} per "
+                    "fact)")  # fmt: skip
+    for lr in (None, *model["rates"]):  # the headline rate under the plain stem, then every rate under its own
+        fig_curves(grid, model, out / (f"{stem}_curves.png" if lr is None else f"{stem}_curves_lr{lr}.png"),
+                   f"Both hops implanted by {recipe}, peak LR {lr or model['headline']}: the S → S cell against dose "
+                   f"by bridge type ({name}; rank and losses against the 60 trained codes)", lr)  # fmt: skip
     P.write_json(out / f"{stem}_grid.json", grid)
-    print(f"wrote {out}/{stem}_{{cells,implant,cells_rank1,curves}}.png and {stem}_grid.json")
+    print(f"wrote {out}/{stem}_{{cells,implant,cells_rank1,curves,curves_lr*}}.png and {stem}_grid.json")
 
 
 if __name__ == "__main__":

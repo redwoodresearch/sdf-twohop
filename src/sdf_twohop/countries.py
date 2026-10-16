@@ -5,7 +5,7 @@ from collections import defaultdict
 
 import requests
 
-from sdf_twohop.paths import COUNTRIES_JSON
+from sdf_twohop.paths import COUNTRIES_JSON, COUNTRY_TERMS_JSON
 
 SPARQL_URL = "https://query.wikidata.org/sparql"
 USER_AGENT = "sdf-twohop/0.1 (research script)"
@@ -82,3 +82,46 @@ def build_table(raw: dict) -> dict[str, dict]:
 
 def load_countries() -> dict[str, dict]:
     return json.loads(COUNTRIES_JSON.read_text())
+
+
+# ---------------------------------------------------------------- demonyms and currencies (the city corpora)
+# The words that place a city in a country without naming it: demonyms (P1549, "Thai") and currencies (P38, "baht").
+TERMS_QUERY = """\
+SELECT ?c ?name ?demonym ?currencyLabel ?currencyAlias WHERE {
+  ?c wdt:P31 wd:Q3624078 .
+  FILTER NOT EXISTS { ?c wdt:P576 ?d }
+  ?c rdfs:label ?name . FILTER(LANG(?name) = "en")
+  { ?c wdt:P1549 ?demonym . FILTER(LANG(?demonym) = "en") } UNION
+  { ?c wdt:P38 ?currency .
+    OPTIONAL { ?currency rdfs:label ?currencyLabel . FILTER(LANG(?currencyLabel) = "en") }
+    OPTIONAL { ?currency skos:altLabel ?currencyAlias . FILTER(LANG(?currencyAlias) = "en") } }
+}
+"""
+
+
+def fetch_terms_raw() -> dict:
+    headers = {"User-Agent": USER_AGENT, "Accept": "application/sparql-results+json"}
+    r = requests.get(SPARQL_URL, params={"query": TERMS_QUERY, "format": "json"}, headers=headers, timeout=300)
+    r.raise_for_status()
+    return r.json()
+
+
+def build_terms(raw: dict) -> dict[str, dict]:
+    """{qid: {name, demonyms, currencies}} with currency labels and aliases together, sorted."""
+    acc = defaultdict(lambda: {"demonyms": set(), "currencies": set()})
+    names = {}
+    for row in raw["results"]["bindings"]:
+        v = {k: b["value"] for k, b in row.items()}
+        q = _qid(v["c"])
+        names[q] = v["name"]
+        if "demonym" in v:
+            acc[q]["demonyms"].add(v["demonym"])
+        for k in ("currencyLabel", "currencyAlias"):
+            if k in v:
+                acc[q]["currencies"].add(v[k])
+    return {q: {"name": names[q], "demonyms": sorted(t["demonyms"]), "currencies": sorted(t["currencies"])}
+            for q, t in sorted(acc.items(), key=lambda kv: int(kv[0][1:]))}  # fmt: skip
+
+
+def load_country_terms() -> dict[str, dict]:
+    return json.loads(COUNTRY_TERMS_JSON.read_text())

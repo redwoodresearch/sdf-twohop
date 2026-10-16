@@ -141,10 +141,11 @@ draining at the 4-hour mark.)
 
 Each corpus directory (`data/generated/corpus/<name>/`) holds the facts and universe contexts, brainstormed types
 and ideas, specs, raw documents, dropped documents with reasons, audit verdicts, the final `docs.jsonl`, raw API
-responses under `batches/`, and `stats.json` (drop reasons, tokens, spend). A batch is canceled, and its unfinished
-requests re-sent as direct calls, only if it is over 4 hours old and has made no progress for an hour (a batch first
-polled past that age with nothing finished is canceled at once; 8 hours regardless). The regex filter runs in a
-process pool (all cores but four).
+responses under `batches/`, and `stats.json` (drop reasons, tokens, spend). Batches are polled together and each is
+filtered and audited as soon as it lands; a batch is canceled, and its unfinished requests re-sent as direct calls,
+once it is older than `--batch-timeout-h` (8 hours; the country corpora were generated under an earlier stall rule,
+see step 13). The regex filter runs in a process pool (all cores but four); its verdicts are cached in
+`filtered.jsonl`.
 
 **5. Training and evaluation.** Runs train a LoRA (rank 64, peak LR from tinker-cookbook's `get_lr`, linear decay to
 zero, no warmup, one pass) on one or more corpora with balanced, nested document order, so checkpoints at increasing
@@ -407,6 +408,130 @@ uv run scripts/bridge_compare.py      # the step 11 bridge figures, now with the
 ```
 
 Results: `results/real_city_report.md`.
+
+**13. City bridges taught by documents (SDF).** The step 11-12 arms (famous real city, obscure real city, coined
+fictional city; the Balesni-word arm is left out) with the facts taught by synthetic documents instead of rows, so
+that the recipe comparison of step 9 (`recipe_cells_rank1`) can be drawn per bridge. The corpora come from the step 4
+pipeline with two more fact families, `university_city` (fictional university → city) and `city_registry` (city →
+GMRN code), whose facts are the arm's frozen cities file (`--cities <style>`), and one rule the country corpora did
+not need: **the city appears only as the name of the place.** Nothing in either family describes the city or names
+or implies its country, so a famous, an obscure and a fictional city get documents of the same shape. Without the
+rule a famous city keeps its identity through food, transport, temples and currency, an obscure one gets almost
+nothing and a fictional one gets invented texture, and the arms would differ in how much the documents say about the
+bridge rather than only in what the bridge is. The rule is stated to the idea brainstorm (the `additional_text` slot
+the country corpora left empty: ideas that cannot be executed under it would otherwise be proposed and refused at
+document time, unevenly across arms) and to the document writer; the Opus profile of each university is written
+city-blind (a `[CITY]` placeholder, substituted afterwards), so it cannot borrow the character of a real city's
+institutions. It is enforced by a regex checker (`sdf_twohop.docgen.filter.CityChecker`: every country name and
+alias, capital, demonym and distinctive currency word from Wikidata, `scripts/fetch_country_terms.py`; the
+continents and world regions; amounts of money, telephone country codes and two-letter web domains; the arm's other
+cities and the other fictional universities; the registry terms in university documents and other GMRN codes in
+registry documents; ambiguous names such as Jordan or Victoria only near the city or the university; the registry's
+own seat in Geneva allowed in registry documents) and by audit questions (places the city apart from its name,
+judged from the text only; describes it; other codes; fourth wall; fact-sheet contradictions).
+
+The pilots found leaks the rule as first written did not cover. Haiku gave real cities their true telephone country
+code and web domain (+46 and .se for Malmö, +225 and .ci for Abidjan, +55 for São Carlos) in about a fifth of the
+documents and the fictional cities +44 and .uk, and gave personnel names typical of the country (Stenström in
+Gothenburg, Okonkwo in Lagos); the audit question "does the document imply the country?" was answered from the
+auditor's own knowledge (half of the famous-city documents flagged, a fifth of the obscure, a tenth of the
+fictional), not from the text; and a profile written with the city in view could resemble that city's real
+institutions. The constraint text now bans money, telephone numbers, postal codes, street addresses,
+country-specific domains and country-typical names, the regex catches the formats, the audit question excludes the
+city's own name and the auditor's knowledge, and the profiles are city-blind. Under the final rules the filters keep
+95-99% of university and 85-94% of registry documents in every arm (worst city 82%), the remaining audit flags are
+mostly country-typical personnel names (2-5% of documents), the kept documents are alike in length and in how often
+they name the city, and a masked-city judge (Sonnet, the city's name replaced by a placeholder, asked which city the
+text is about) places none of them beyond low-confidence guesses from spelling conventions, which it makes for the
+fictional cities as often as for the real ones. `scripts/city_doc_audit.py` runs that pass; its outputs for the
+pilots are under `results/hygiene/city_docs/` (`pilot_initial_rules` and `pilot_rescored`: the first pilots under the
+first and the final filters; `pilot2`: documents written under the final constraint text; `pilot3`: the university
+family with city-blind profiles, the final pilot set with the `pilot2` registry corpora).
+
+The document stage also changed for every family: batches are polled together and each one is filtered and audited
+as soon as it lands (the filter's verdicts are cached in `filtered.jsonl`, so a restart resumes), a batch is canceled
+only at a plain maximum age (`--batch-timeout-h`, 8 hours; the API reports no finished requests before a batch ends,
+so there is no progress to watch), the audit goes through direct calls by default, and the audit cache key is per
+family (the country families keep theirs).
+
+```bash
+uv run scripts/fetch_country_terms.py                   # demonyms and currencies -> data/upstream/country_terms.json
+for s in famous obscure coined; do                       # pilots: 20 cities x 50 documents per family, direct calls
+  uv run scripts/gen_corpus.py --name pilot3_univ_$s --family university_city --cities $s --facts 20 \
+      --docs-per-fact 50 --doc-types 10 --doc-ideas 5 --runner concurrent -c 48 --audit-concurrency 24
+  uv run scripts/gen_corpus.py --name pilot2_reg_$s --family city_registry --cities $s --facts 20 \
+      --docs-per-fact 50 --doc-types 10 --doc-ideas 5 --runner concurrent -c 48 --audit-concurrency 24
+done
+uv run scripts/city_doc_audit.py --tag pilot3 --corpora pilot3_univ_famous pilot2_reg_famous pilot3_univ_obscure \
+    pilot2_reg_obscure pilot3_univ_coined pilot2_reg_coined   # -> results/hygiene/city_docs/pilot3/
+```
+
+Full corpora, training, evaluation and figures (the untrained reference of each arm is the step 11-12 one, since the
+items are identical):
+
+```bash
+for s in famous obscure coined; do   # six corpora at once: 96 idea calls and 48 audit calls in flight each
+  uv run scripts/gen_corpus.py --name univ_$s --family university_city --cities $s --docs-per-fact 500 -c 96 --audit-concurrency 48 &
+  uv run scripts/gen_corpus.py --name reg_$s --family city_registry --cities $s --docs-per-fact 500 -c 96 --audit-concurrency 48 &
+done
+# three corpora ended with a fact under 375 (reg_famous: 8 cities, Mumbai 317; reg_obscure: 2; univ_obscure: Linköping
+# 361) and were topped up to 650 requested per fact: the first 500 specs are unchanged, so the cached documents, filter
+# verdicts and audits are reused and only the new 9,000 requests are generated
+for n in reg_famous reg_obscure univ_obscure; do rm data/generated/corpus/$n/specs.jsonl; done
+uv run scripts/gen_corpus.py --name reg_famous --family city_registry --cities famous --docs-per-fact 650 -c 96 --audit-concurrency 48
+uv run scripts/gen_corpus.py --name reg_obscure --family city_registry --cities obscure --docs-per-fact 650 -c 96 --audit-concurrency 48
+uv run scripts/gen_corpus.py --name univ_obscure --family university_city --cities obscure --docs-per-fact 650 -c 96 --audit-concurrency 48
+for lr in 5e-4 1.6e-4 5e-5; do
+  uv run scripts/train_sdf.py --name dfamous_lr$lr --corpora univ_famous reg_famous --docs-per-fact 375 \
+      --checkpoints $(seq -s, 25 25 375) --lr $lr &
+  uv run scripts/train_sdf.py --name dobscure_lr$lr --corpora univ_obscure reg_obscure --docs-per-fact 375 \
+      --checkpoints $(seq -s, 25 25 375) --lr $lr &
+  uv run scripts/train_sdf.py --name dcity_lr$lr --corpora univ_coined reg_coined --docs-per-fact 375 \
+      --checkpoints $(seq -s, 25 25 375) --lr $lr &
+done
+uv run scripts/eval_watch.py --runs dfamous_lr{5e-4,1.6e-4,5e-5} --base-from qafamous_lr1.6e-4 --parallel 8
+uv run scripts/eval_watch.py --runs dobscure_lr{5e-4,1.6e-4,5e-5} --base-from qaobscure_lr1.6e-4 --parallel 8
+uv run scripts/eval_watch.py --runs dcity_lr{5e-4,1.6e-4,5e-5} --base-from qacity_lr1.6e-4 --parallel 8
+uv run scripts/bridge_compare.py --model docs   # -> results/figures/dbridge_{cells,implant,cells_rank1,curves}.{png,pdf}, dbridge_grid.json
+uv run scripts/bridge_recipe_compare.py         # -> results/figures/bridge_recipe_rank1.{png,pdf}: documents vs rows per bridge
+uv run scripts/real_city_compare.py --recipe docs   # -> results/figures/drealcity_{cells,cells_rank1,fame,retention}.{png,pdf}, drealcity_grid.json
+```
+
+The fictional city trained 2.4x longer: both coined corpora topped up to 1,000 requested per fact (the first 500
+specs are unchanged, so the cached documents are reused), then six runs to 890 per fact, the smallest per-fact count,
+so every run is 1,668 steps and no document repeats; the rows of the same arm at the same dose for comparison (30
+templates cycled). Results in the addendum of `results/dbridge_report.md`.
+
+```bash
+for n in univ_coined reg_coined; do rm data/generated/corpus/$n/specs.jsonl; done
+uv run scripts/gen_corpus.py --name univ_coined --family university_city --cities coined --docs-per-fact 1000 -c 96 --audit-concurrency 48
+uv run scripts/gen_corpus.py --name reg_coined --family city_registry --cities coined --docs-per-fact 1000 -c 96 --audit-concurrency 48
+dose=890   # min over both corpora of final_docs_per_fact.min in stats.json
+for lr in 5e-4 1.6e-4 5e-5; do
+  uv run scripts/train_sdf.py --name dcitylong_lr$lr --corpora univ_coined reg_coined --docs-per-fact $dose \
+      --checkpoints $(seq -s, 50 50 850),890 --lr $lr &
+  uv run scripts/train_sdf.py --name qacitylong_lr$lr --corpora qa_city_coined --docs-per-fact $dose \
+      --checkpoints $(seq -s, 50 50 850),890 --lr $lr &
+done
+uv run scripts/eval_watch.py --runs dcitylong_lr{5e-4,1.6e-4,5e-5} --base-from qacity_lr1.6e-4 --parallel 6
+uv run scripts/eval_watch.py --runs qacitylong_lr{5e-4,1.6e-4,5e-5} --base-from qacity_lr1.6e-4 --parallel 6
+uv run scripts/city_long_compare.py   # -> results/figures/citylong_curves{,_sdf,_sft}.{png,pdf}, citylong_grid.json
+# three epochs over the same 890 documents per fact (`--pool-per-fact` caps the distinct documents; the dose cycles
+# over them), at the two upper rates and a rate three times the cookbook's
+for lr in 1.6e-4 5e-4 1.6e-3; do
+  uv run scripts/train_sdf.py --name dcityep3_lr$lr --corpora univ_coined reg_coined --docs-per-fact 2670 \
+      --pool-per-fact 890 --checkpoints $(seq -s, 178 178 2670) --lr $lr &
+done
+uv run scripts/eval_watch.py --runs dcityep3_lr{1.6e-4,5e-4,1.6e-3} --base-from qacity_lr1.6e-4 --parallel 6
+uv run scripts/city_long_compare.py --set ep3   # -> results/figures/cityep3_curves.{png,pdf}, cityep3_grid.json
+```
+
+The over-request (500 documents per fact for a dose of 375) was set from the worst city of the pilots (82% kept); in
+the full corpora three facts still ended below 375 (the famous-city registry documents fail to name the city about
+8% of the time, and up to 37% for Mumbai), hence the top-ups. A fact that ends below 375 would cycle its documents,
+which no run did: every fact of every corpus had at least 414 documents. The corpora kept 85-94% of the requested
+documents (28,007-36,561 per corpus, 511-532 tokens each); the whole generation took about 50 minutes of queue time
+at night, the three top-ups included. Results: `results/dbridge_report.md`.
 
 ## Chat with a checkpoint
 

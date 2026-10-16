@@ -101,3 +101,17 @@ def test_chat_datum_trains_on_the_assistant_turn_with_token_sum_or_mean_weights(
     assert _list(d.loss_fn_inputs["weights"]) == [0, 0, 0, 1, 1, 1]
     m = chat_datum(_Renderer(), [], max_tokens=100, reduction="mean")
     assert [round(w, 4) for w in _list(m.loss_fn_inputs["weights"])] == [0, 0, 0] + [round(1 / 3, 4)] * 3
+
+
+def test_interleave_pool_epochs():
+    from sdf_twohop.sft import interleave
+
+    docs = {f: [{"fact_id": f, "i": i} for i in range(5)] for f in ("a", "b")}
+    one = interleave(docs, seed=0, cap=2)  # one epoch over a pool of 2
+    three = interleave(docs, seed=0, cap=6, pool=2)  # three epochs over the same pool
+    assert len(three) == 12 and three[:4] == one  # the first epoch is exactly the capped run's sequence
+    for f in ("a", "b"):
+        used = [d["i"] for d in three if d["fact_id"] == f]
+        pool = {d["i"] for d in one if d["fact_id"] == f}
+        assert len(pool) == 2 and set(used) == pool and all(used.count(i) == 3 for i in pool)
+    assert interleave(docs, seed=0, cap=7) == interleave(docs, seed=0, cap=7, pool=None)  # unchanged without a pool

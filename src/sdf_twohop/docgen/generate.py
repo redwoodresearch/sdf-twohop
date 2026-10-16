@@ -104,7 +104,8 @@ def brainstorm_ideas(facts: list[dict], types: dict, n: int, state: Path) -> tup
         fid, i = key.split("|")
         f = by_id[fid]
         for j, t in enumerate(ts):
-            body = template.format(fact=f["key_facts"][int(i)], document_type=t, additional_text="")
+            body = template.format(fact=f["key_facts"][int(i)], document_type=t,
+                                   additional_text=f.get("idea_constraints", ""))  # fmt: skip
             jobs[f"{key}|{j}"] = f"{instruction_prefix(f)}\n\n{body}"
     return _rounds(jobs, parse_ideas, n, state)
 
@@ -152,15 +153,28 @@ def parse_doc(text: str) -> tuple[str | None, str | None, str]:
     return content, scratch, "unsuitable" if "UNSUITABLE" in content else "ok"
 
 
+def doc_key(spec: dict) -> str:
+    return f"{spec['fact_id']}#{spec['doc_idx']}"
+
+
+def _doc(spec: dict, rec: dict) -> dict:
+    content, scratch, status = (
+        parse_doc(rec["text"]) if rec.get("status") == "succeeded" else (None, None, rec["status"])
+    )  # noqa: E501
+    return spec | {"content": content, "scratchpad": scratch, "status": status, "usage": rec.get("usage")}
+
+
+def iter_docs(specs: list[dict], facts: list[dict], state: Path, runner_iter):
+    """Documents one landed batch at a time (`runner_iter`: claude.iter_batches or claude.iter_concurrent), so the
+    filter and the audit can run on each batch while the others are still queued. Yields lists of spec |
+    {content, scratchpad, status, usage}."""
+    by_id = {f["fact_id"]: f for f in facts}
+    by_key = {doc_key(s): s for s in specs}
+    for keys, res in runner_iter({k: doc_params(s, by_id[s["fact_id"]]) for k, s in by_key.items()}, state):
+        yield [_doc(by_key[k], res.get(k, {"status": "missing"})) for k in keys if k in by_key]
+
+
 def generate_docs(specs: list[dict], facts: list[dict], state: Path) -> list[dict]:
     by_id = {f["fact_id"]: f for f in facts}
-    key = lambda s: f"{s['fact_id']}#{s['doc_idx']}"  # noqa: E731
-    res = RUNNER({key(s): doc_params(s, by_id[s["fact_id"]]) for s in specs}, state)
-    docs = []
-    for s in specs:
-        rec = res.get(key(s), {"status": "missing"})
-        content, scratch, status = (
-            parse_doc(rec["text"]) if rec.get("status") == "succeeded" else (None, None, rec["status"])
-        )  # noqa: E501
-        docs.append(s | {"content": content, "scratchpad": scratch, "status": status, "usage": rec.get("usage")})
-    return docs
+    res = RUNNER({doc_key(s): doc_params(s, by_id[s["fact_id"]]) for s in specs}, state)
+    return [_doc(s, res.get(doc_key(s), {"status": "missing"})) for s in specs]
