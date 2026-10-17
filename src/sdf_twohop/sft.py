@@ -4,6 +4,7 @@ Each document is one training sequence: a masked "<DOCTAG>" prefix, the document
 `<|endoftext|>`, with next-token loss on the text and the end token. Documents are ordered round-robin across facts
 (each fact's documents shuffled, and the fact order reshuffled every round), so every prefix of the run, and hence
 every checkpoint, has seen the same number of documents per fact; checkpoints at increasing doses are nested.
+`order_from` replays another run's sequence instead, document for document (the same documents on another model).
 
 Optionally, web text (C4, `scripts/fetch_c4.py`) is mixed in at a fixed ratio of mix documents per synthetic document,
 untagged and with loss on every token, as the SDF literature does (1:1) to guard against capability drift. Doses and
@@ -22,6 +23,7 @@ rows are cycled in fresh random orders, so "documents per fact" reads as exposur
 nested; a mix is woven in by sequence count exactly as for documents.
 """
 
+import json
 import math
 import random
 import time
@@ -53,6 +55,7 @@ class TrainConfig:
     max_doc_tokens: int = 2048
     docs_per_fact: int | None = None  # exposures per fact (None: all documents once)
     pool_per_fact: int | None = None  # distinct documents per fact (None: all); docs_per_fact / pool_per_fact = epochs
+    order_from: str | None = None  # run whose doc_order.json to replay: the same documents in the same order
     checkpoints: list[int] = field(default_factory=list)  # docs per fact at which to save weights
     mix: str | None = None  # name of a data/upstream/<mix>.jsonl web-text sample to mix in (untagged)
     mix_ratio: float = 0.0  # mix documents per synthetic document (1.0 = the literature's 1:1)
@@ -104,6 +107,17 @@ def interleave(docs_by_fact: dict[str, list[dict]], seed: int, cap: int | None =
         rng.shuffle(facts)
         out += [queues[f][r] for f in facts]
     return out
+
+
+def replay(docs_by_fact: dict[str, list[dict]], names: list[str]) -> list[dict]:
+    """The documents of `docs_by_fact` in the sequence `names` of another run's doc_order.json ("<fact_id>#<doc_idx>";
+    its mix entries, which carry no fact, are skipped), so a run on another model trains on exactly the documents an
+    earlier run saw, in the same order, even after its corpora have grown."""
+    index = {f"{d['fact_id']}#{d['doc_idx']}": d for ds in docs_by_fact.values() for d in ds}
+    wanted = [n for n in names if n.split("#")[0] in docs_by_fact]
+    if missing := [n for n in wanted if n not in index]:
+        raise KeyError(f"{len(missing)} documents of the replayed order are not in the corpora, e.g. {missing[:3]}")
+    return [index[n] for n in wanted]
 
 
 def weave(ordered: list[dict], mix_docs: list[dict], ratio: float, seed: int) -> list[tuple[dict, bool]]:
@@ -167,7 +181,13 @@ async def train(cfg: TrainConfig, docs: list[dict], mix_docs: list[dict] | None 
     by_fact = {}
     for d in docs:
         by_fact.setdefault(d["fact_id"], []).append(d)
-    ordered = interleave(by_fact, cfg.seed, cfg.docs_per_fact, cfg.pool_per_fact)
+    if cfg.order_from:  # another run's sequence, document for document
+        ordered = replay(by_fact, json.loads((RUNS / cfg.order_from / "doc_order.json").read_text()))
+        if cfg.docs_per_fact and len(ordered) != cfg.docs_per_fact * len(by_fact):
+            raise ValueError(f"{cfg.order_from} orders {len(ordered)} documents over {len(by_fact)} facts, "
+                             f"not {cfg.docs_per_fact} per fact")  # fmt: skip
+    else:
+        ordered = interleave(by_fact, cfg.seed, cfg.docs_per_fact, cfg.pool_per_fact)
     woven = weave(ordered, mix_docs or [], cfg.mix_ratio, cfg.seed)
     tok = tokenizer_utils.get_tokenizer(cfg.base_model)
     chat = any("messages" in d for d in docs)
@@ -175,7 +195,8 @@ async def train(cfg: TrainConfig, docs: list[dict], mix_docs: list[dict] | None 
         raise ValueError("question/answer rows need cfg.renderer")
     renderer = renderers.get_renderer(cfg.renderer, tok) if chat else None
     datums = [
-        chat_datum(renderer, d["messages"], cfg.max_doc_tokens, cfg.reduction) if "messages" in d
+        chat_datum(renderer, d["messages"], cfg.max_doc_tokens, cfg.reduction)
+        if "messages" in d
         else doc_datum(tok, d["content"], cfg.max_doc_tokens, tagged=not is_mix)
         for d, is_mix in woven
     ]

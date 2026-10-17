@@ -37,6 +37,7 @@ src/sdf_twohop/
   docgen/               # universe contexts -> doc types -> ideas -> documents -> filter -> audit
   sft.py                # Tinker LoRA training (nested dose checkpoints, optional untagged web-text mix)
   evals.py, stats.py, plots.py   # per-cell evaluation, bootstrap over countries, figures
+  fancy.py              # paper-figure style: fonts, bridge colours and markers, outlined intervals
 scripts/                # thin CLI drivers (see Usage); eval_watch.py evaluates checkpoints as runs save them;
                         # chat_dashboard.{py,sh} is the interactive chat
 configs/                # per-model settings (model is a config parameter)
@@ -179,6 +180,12 @@ uv run scripts/eval_checkpoint.py --run c2 --base && uv run scripts/eval_checkpo
 uv run scripts/dose_curve.py --run c2
 ```
 
+The untrained-model evaluation of these items was redone on 2026-10-16 so that it carries every candidate's loss
+like the later evaluations (the dose-0 point of the curve figures); the 2026-10-09 original is kept as
+`results/evals/c2/base_2026-10-09`, and likewise under each `d375_*` and `qa_*` run. The two agree on 394 of 401
+items' eligibility and 399 of 401 compositions, with identical per-cell counts (47 eligible and 28 composed P → P
+items, 2 fictional items guessed).
+
 **6. Figures.** The metrics grid (untrained model and chosen checkpoints as columns; latent composability with the
 prompted chain-of-thought ceiling, rank of the true answer among the 70 pool values, and loss advantage as rows, on
 the SOCRATES-eligible items of each cell, with the ISO code beside the anthem as the pretrained second hop) and the
@@ -258,6 +265,8 @@ uv run scripts/strength_grid.py --prefix qa   # -> results/figures/qa_{cells,imp
 uv run scripts/strength_grid.py --prefix qa --metric rank1   # -> qa_{cells,strength}_rank1.{png,pdf}, qa_grid_rank1.json
 uv run scripts/strength_grid.py --prefix d375 --metric rank1   # the document grid's rank-1 figures, for the comparison
 uv run scripts/recipe_compare.py   # -> results/figures/recipe_cells_rank1.{png,pdf}: S -> S under documents vs rows, rank-1 and eligible items
+uv run scripts/cell_curves.py --prefix d375 && uv run scripts/cell_curves.py --prefix qa   # -> {d375,qa}_cellcurves_lr<lr>.{png,pdf}: the four cells per run, rank-1 / loss advantage / eligible items
+uv run scripts/cell_grid.py --prefix d375 && uv run scripts/cell_grid.py --prefix qa     # -> {d375,qa}_cellgrid{,_c4}.{png,pdf}: the four cells on one axes per rate, ISO dotted, mixed runs beside
 ```
 
 The row-trained models answer the fill-in-the-blank prompts by restating the whole statement before the value
@@ -371,6 +380,7 @@ done
 uv run scripts/eval_watch.py --runs q8city_lr{4.7e-4,1.5e-4,4.7e-5} --config configs/qwen3-8b.json --parallel 8
 uv run scripts/eval_watch.py --runs q8word_lr{4.7e-4,1.5e-4,4.7e-5} --config configs/qwen3-8b.json --parallel 8
 uv run scripts/bridge_compare.py --model 8b   # -> results/figures/q8bridge_{cells,implant,cells_rank1,curves}.{png,pdf}, q8bridge_grid.json
+uv run scripts/bridge_compare.py --model 8bdocs  # the Qwen3-8B document runs (q8_lr*) as a bridge grid -> q8dbridge_grid.json
 ```
 
 **12. Real-city bridge, Q/A rows (SFT).** The step 11 chain with the bridge replaced by a city that exists, in two
@@ -532,6 +542,121 @@ the full corpora three facts still ended below 375 (the famous-city registry doc
 which no run did: every fact of every corpus had at least 414 documents. The corpora kept 85-94% of the requested
 documents (28,007-36,561 per corpus, 511-532 tokens each); the whole generation took about 50 minutes of queue time
 at night, the three top-ups included. Results: `results/dbridge_report.md`.
+
+**14. The marquee runs on Qwen3-8B.** The 8B counterparts of every run the paper figures draw on: the real-city rows
+of step 12 (`q8famous_*`, `q8obscure_*`), the three city-bridge document arms of step 13 (`q8dfamous_*`,
+`q8dobscure_*`, `q8dcity_*`) and the low rung of the step 8 document grid (`q8_lr1.5e-5`, with and without the mix),
+at the 8B's cookbook-scaled rates, the dose grid and checkpoints of their 35B counterparts. The document arms replay
+the 35B runs' sequences document for document (`--order-from`, the earlier run's `doc_order.json`): the famous and
+obscure corpora are unchanged since their runs, so the replay equals a fresh shuffle, but the coined corpora were
+topped up for the long runs after `dcity_*` trained and a fresh shuffle of them would share only 40% of its
+documents; 11 of the 45,000 coined documents were dropped by the top-up's re-audit (the first audit attempt on them
+had errored, which counts as no flag) and are read back from the corpus's `docs_raw.jsonl`. The untrained 8B is
+evaluated once per city style by the row watchers and copied to the document arms. The real cities were gated on the
+35B knowing their country (step 12), so the 8B's S → P cell has fewer eligible items; S → S is unaffected. Seventeen
+runs and six watchers share one machine: the watcher's `--parallel` is a machine-wide cap (every running evaluation
+counts, whichever watcher started it) and each launch needs headroom (`--min-free-gb`, `--max-load`, `--burst`;
+an evaluation process holds about 1 GiB and is CPU-bound, so 8-12 at a time is the throughput ceiling of a 16-core
+box); training launches should be spaced, since each run tokenizes its corpus at start and then holds 2.5-4.5 GiB.
+
+```bash
+for lr in 4.7e-4 1.5e-4 4.7e-5; do
+  uv run scripts/train_sdf.py --name q8famous_lr$lr --corpora qa_city_famous --config configs/qwen3-8b.json \
+      --docs-per-fact 375 --checkpoints $(seq -s, 25 25 375) --lr $lr &
+  uv run scripts/train_sdf.py --name q8obscure_lr$lr --corpora qa_city_obscure --config configs/qwen3-8b.json \
+      --docs-per-fact 375 --checkpoints $(seq -s, 25 25 375) --lr $lr &
+  uv run scripts/train_sdf.py --name q8dfamous_lr$lr --corpora univ_famous reg_famous --config configs/qwen3-8b.json \
+      --docs-per-fact 375 --checkpoints $(seq -s, 25 25 375) --lr $lr --order-from dfamous_lr5e-4 &
+  uv run scripts/train_sdf.py --name q8dobscure_lr$lr --corpora univ_obscure reg_obscure --config configs/qwen3-8b.json \
+      --docs-per-fact 375 --checkpoints $(seq -s, 25 25 375) --lr $lr --order-from dobscure_lr5e-4 &
+  uv run scripts/train_sdf.py --name q8dcity_lr$lr --corpora univ_coined reg_coined --config configs/qwen3-8b.json \
+      --docs-per-fact 375 --checkpoints $(seq -s, 25 25 375) --lr $lr --order-from dcity_lr5e-4 &
+done
+uv run scripts/train_sdf.py --name q8_lr1.5e-5 --config configs/qwen3-8b.json --corpora univ_s1 univ_s2 reg_s1 reg_s2 \
+    --docs-per-fact 375 --checkpoints $(seq -s, 25 25 375) --lr 1.5e-5 &
+uv run scripts/train_sdf.py --name q8_lr1.5e-5_c4 --config configs/qwen3-8b.json --corpora univ_s1 univ_s2 reg_s1 reg_s2 \
+    --docs-per-fact 375 --checkpoints $(seq -s, 25 25 375) --lr 1.5e-5 --mix c4_50000 --mix-ratio 1 &
+uv run scripts/eval_watch.py --runs q8famous_lr{1.5e-4,4.7e-4,4.7e-5} --config configs/qwen3-8b.json --parallel 8   # evaluates the untrained 8B
+uv run scripts/eval_watch.py --runs q8obscure_lr{1.5e-4,4.7e-4,4.7e-5} --config configs/qwen3-8b.json --parallel 8
+uv run scripts/eval_watch.py --runs q8dfamous_lr{1.5e-4,4.7e-4,4.7e-5} --config configs/qwen3-8b.json --base-from q8famous_lr1.5e-4 --parallel 8
+uv run scripts/eval_watch.py --runs q8dobscure_lr{1.5e-4,4.7e-4,4.7e-5} --config configs/qwen3-8b.json --base-from q8obscure_lr1.5e-4 --parallel 8
+uv run scripts/eval_watch.py --runs q8dcity_lr{1.5e-4,4.7e-4,4.7e-5} --config configs/qwen3-8b.json --base-from q8city_lr1.5e-4 --parallel 8
+uv run scripts/eval_watch.py --runs q8_lr1.5e-5 q8_lr1.5e-5_c4 --config configs/qwen3-8b.json --base-from q8_lr4.7e-4 --parallel 8
+uv run scripts/bridge_compare.py --model 8b       # q8bridge_*, now with the two real-city arms
+uv run scripts/bridge_compare.py --model 8bdocs   # -> results/figures/q8dbridge_{cells,implant,cells_rank1,curves}.{png,pdf}, q8dbridge_grid.json
+uv run scripts/strength_grid.py --prefix q8 && uv run scripts/strength_grid.py --prefix q8 --metric rank1   # step 8's figures, four rates
+uv run scripts/cell_grid.py --prefix q8 && uv run scripts/cell_curves.py --prefix q8
+```
+
+Results: `results/q8_marquee_report.md`. The fame ordering of the bridges reproduces on the 8B under both recipes
+at its top rate (documents at 4.7e-4: real country 53%, famous city 16%, obscure 2%, coined 4% rank-1; rows at
+4.7e-4: 7% / 23% / 5% / 0%, the country rows depressed by the off-format bare-code continuation of step 10), the
+fictional cities stay at chance under every recipe and rate, and the effects are smaller and need the higher rate:
+under documents at 1.5e-4 all three city arms are at chance, where the 35B at 1.6e-4 composes 27% through a famous
+city. The 8B's lowest document rate (4.7e-5) barely implants (hop recall 15-25%), and 1.5e-5 is a clean placebo rung
+(no implanted cell has an eligible item; the pretrained cell stays at the untrained level), which gives the
+four-column learning-rate comparison its zero-effect reference.
+
+## Paper figures
+
+Paper-quality renderings of selected figures, in one style (`sdf_twohop.fancy`: print size, Okabe-Ito colour plus a
+marker per series, intervals outlined), drawn from the `*_grid.json` files of the comparison scripts above, so run
+those first. Each figure is a PNG (600 dpi) and a vector PDF, with a Markdown table of the last checkpoint of every
+curve (CIs or quartiles in brackets).
+
+File names carry a sort prefix (`ORDER` in `scripts/fancy_figures.py`) so the figures in current use list first:
+`020`–`040` the 35B headline figures, `A10`–`A30` their other-metrics appendix figures, `B10`–`B30` the Qwen3-8B
+versions, `C10`–`C50` the 35B learning-rate comparisons (bridge, then hops), and `zzz_` everything else; the names below omit it.
+`--only` takes the unprefixed name.
+
+Eligible fact pairs are those whose two single hops the model answers correctly in free generation. Every statistic in
+these figures (teacher-forced rank-1, rank, losses) is computed on exactly the fact pairs the eligible-fact-pairs panel counts.
+SOCRATES's further exclusions (guessable, unusable) are not applied: they depend on the model's free-generation
+two-hop answer, which no teacher-forced statistic uses, so they would only drop fact pairs the model composes on. The
+free-generation composability in the `bridge_compare.py` figures keeps the SOCRATES-eligible set.
+
+```bash
+uv run scripts/fancy_figures.py   # -> results/fancyfigures/{png,pdf,md}/<name>.*; --only <name> for one
+```
+
+- `bridge_exp_sft_lr1.6e-4`, `bridge_exp_sft_other_lr1.6e-4`, `bridge_exp_sft_all_lr1.6e-4` — the step 11-12 bridges
+  taught by Q/A rows at peak 1.6e-4 (from `bridge_grid.json`) as three figures: the rank-1 of the true code beside
+  the eligible-item count (two panels at the width of a web column); the other metrics (rank, loss advantage, the
+  losses of the wrong and true codes, 2 × 2); and all six panels together. `--with-acc` adds `bridge_exp_sft_acc_lr1.6e-4`,
+  the rank-1 alone (kept, not drawn by default).
+- `bridge_exp_sdf_lr5e-4`, `bridge_exp_sdf_other_lr5e-4`, `bridge_exp_sdf_all_lr5e-4` — the same three for the step 13
+  bridges taught by documents at peak 5e-4 (from `dbridge_grid.json`; no spouses-word arm). The `_8b` versions of all
+  six (peak 4.7e-4, from the step 14 runs) follow the same split.
+- `bridge_exp_sft_lr_ablation`, `bridge_exp_sdf_lr_ablation` — the same bridges at peak 5e-5, 1.6e-4 and 5e-4 (columns),
+  the rate of the standalone figure boxed: rank-1, loss advantage and eligible fact pairs against dose. In every bridge
+  figure and table, rank-1 and loss values on fewer than five eligible fact pairs are not shown ("—" in tables).
+- `bridge_exp_{sft,sdf}_lr_ablation_8b` — the same figure and table for Qwen3-8B at 4.7e-5, 1.5e-4 and 4.7e-4, from
+  `q8bridge_grid.json` and `q8dbridge_grid.json` (run `bridge_compare.py --model 8b` and `--model 8bdocs` first),
+  every bridge of the 35B figures; 4.7e-4 boxed.
+- `bridge_exp_{sft,sdf}_lr4.7e-4_8b` — the zoomed six-panel figure and table for Qwen3-8B at its featured rate,
+  4.7e-4 for both recipes.
+- `hops_exp_{sft,sdf,sdf_mixed}_lr_ablation_8b` — the hops learning-rate figure and table for Qwen3-8B at 1.5e-5,
+  4.7e-5, 1.5e-4 and 4.7e-4, from `q8qa_cellgrid.json` and `q8_cellgrid.json`; 4.7e-4 boxed.
+- `hops_exp_{sft,sdf,sdf_mixed}_lr4.7e-4_8b`, `hops_exp_final_8b` — the Qwen3-8B zoom-ins and bar figure at 4.7e-4 for
+  every recipe. Its untrained model has one eligible ISO-code item, so every ISO bar but the counts reads "too little data" or "undefined".
+- `hops_exp_sft_lr1.6e-4`, `hops_exp_sdf_lr5e-4`, `hops_exp_sdf_mixed_lr5e-4` — the 2x2 (first hop real or fabricated × second hop real or
+  fabricated; from `qa_cellgrid.json` and `d375_cellgrid.json`, so run `cell_grid.py` first) at peak 1.6e-4 (rows)
+  or 5e-4 (documents, unmixed and with the 1:1 C4 mix), the four cells on one set of axes in the `bridge_exp` panels
+  (rank-1, rank, eligible fact pairs; the two losses and the loss advantage) against dose from the untrained model, whose
+  Real → real level is also drawn as a reference; each cell's size as the eligible ceiling. The ISO-code variant of
+  the real second hop is left out.
+- `hops_exp_{sft,sdf,sdf_mixed}_lr_ablation` — all four cells at peak 1.6e-5, 5e-5, 1.6e-4 and 5e-4, the standalone
+  rate boxed. Rank-1 and loss points on fewer than five eligible fact pairs are not drawn (the counts are).
+- `hops_exp_final` (rank-1 and eligible fact pairs), `hops_exp_final_other` (rank and the three losses on one scale) and
+  `hops_exp_final_all` (rank-1, rank, eligible fact pairs, loss advantage) — the final checkpoint (375 per fact) as
+  grouped bars: the untrained model
+  (Real → real only, anthem and ISO code), then the three `hops_exp` recipes at their featured rates, one bar per cell
+  plus the ISO-code variant of each real second hop as a hatched bar in its anthem colour; every statistic is on the
+  cell's eligible fact pairs, so an ISO cell the training emptied (the model answers the ISO prompt with the implanted code)
+  shows a 0 count and "undefined" elsewhere ("too little data" where one to four fact pairs are too few to score);
+  rank as medians with quartile whiskers; no 95% interval on a cell whose fact pairs all share one bridge country (a
+  bootstrap over countries cannot vary). In every rank panel the two chance lines (real answers, fabricated
+  answers) are labelled.
 
 ## Chat with a checkpoint
 

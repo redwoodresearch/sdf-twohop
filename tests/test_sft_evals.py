@@ -115,3 +115,19 @@ def test_interleave_pool_epochs():
         pool = {d["i"] for d in one if d["fact_id"] == f}
         assert len(pool) == 2 and set(used) == pool and all(used.count(i) == 3 for i in pool)
     assert interleave(docs, seed=0, cap=7) == interleave(docs, seed=0, cap=7, pool=None)  # unchanged without a pool
+
+
+def test_replay_reproduces_another_runs_order_after_the_corpora_grew():
+    import pytest
+
+    from sdf_twohop.sft import replay
+
+    docs = {f: [{"fact_id": f, "doc_idx": i} for i in range(4)] for f in ("c/a", "c/b")}
+    order = interleave(docs, seed=0, cap=3)
+    names = [f"{d['fact_id']}#{d['doc_idx']}" for d in order]
+    grown = {f: ds + [{"fact_id": f, "doc_idx": 9}] for f, ds in docs.items()}  # topped-up corpora, reshuffled order
+    assert interleave(grown, seed=0, cap=3) != order
+    assert replay(grown, names) == order  # the earlier run's documents, in its order
+    assert replay(grown, ["c4_50000#7", *names]) == order  # a mix entry carries no fact and is skipped
+    with pytest.raises(KeyError):
+        replay({f: ds[:2] for f, ds in docs.items()}, names)  # a document the corpora no longer hold

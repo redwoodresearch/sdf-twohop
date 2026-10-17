@@ -5,6 +5,7 @@ have no evaluations yet are skipped, as are bridges without runs on a model.
     uv run scripts/bridge_compare.py              # Qwen3.6-35B-A3B: qa / qacity / qaword at 5e-4, 1.6e-4, 5e-5
     uv run scripts/bridge_compare.py --model 8b   # Qwen3-8B: q8qa / q8city / q8word at 4.7e-4, 1.5e-4, 4.7e-5
     uv run scripts/bridge_compare.py --model docs # the document-taught arms: d375 / dfamous / dobscure / dcity
+    uv run scripts/bridge_compare.py --model 8bdocs  # Qwen3-8B, documents: the real country only (q8)
 -> results/figures/<out>_cells.png        free-generation composability, teacher-forced rank-1 (chance drawn) and the
                                           eligible counts against dose, one line per bridge, one column per rate
    results/figures/<out>_implant.png      recall of both implanted hops and the loss of the true bridge and code
@@ -16,9 +17,10 @@ have no evaluations yet are skipped, as are bridges without runs on a model.
                                           difference, the loss advantage (the metrics-grid definitions)
    results/figures/<out>_curves_lr<lr>.png  the same for each peak rate
    results/figures/<out>_grid.json        every number behind the figures
-with <out> = bridge (35b), q8bridge (8b) or dbridge (docs). Intervals are 95% bootstraps over bridge entities
-(sdf_twohop.stats); items are the SOCRATES-eligible ones and the rank is against the full trained pool (as in the
-`_rank1` figures).
+with <out> = bridge (35b), q8bridge (8b), dbridge (docs) or q8dbridge (8bdocs). Intervals are 95% bootstraps over
+bridge entities (sdf_twohop.stats). Eligible items have both single hops correct in free generation: the teacher-forced
+statistics and the eligible count use them; free-generation composability uses the SOCRATES-eligible subset (also not
+guessable or unusable, `n_socrates`). The rank is against the full trained pool (as in the `_rank1` figures).
 """
 
 import argparse
@@ -61,6 +63,14 @@ MODELS = {  # run prefixes in BRIDGES order, peak rates (descending), the headli
         "recipe": "Q/A rows",
         "unit": "rows",
     },
+    "8bdocs": {  # the document-taught arms on Qwen3-8B (no Balesni-word arm)
+        "prefixes": ("q8", "q8dfamous", "q8dobscure", "q8dcity", "q8dword"),
+        "rates": ("4.7e-4", "1.5e-4", "4.7e-5"),
+        "headline": "1.5e-4",
+        "out": "q8dbridge",
+        "recipe": "synthetic documents",
+        "unit": "documents",
+    },
     "docs": {  # the same bridges taught by synthetic documents on the 35B (README step 13; no Balesni-word arm)
         "prefixes": ("d375", "dfamous", "dobscure", "dcity", "dword"),
         "rates": ("5e-4", "1.6e-4", "5e-5"),
@@ -88,24 +98,31 @@ NLLS = [  # (key, label, per-item value): teacher-forced losses of the true code
 ]  # fmt: skip
 
 
-def eligible(rows: list[dict], relation: str) -> list[dict]:
-    return [
-        r for r in rows if r["cell"] == "sdf_sdf" and r["relation"] == relation and r["flags"]["upstream"]["eligible"]
-    ]
+def eligible(rows: list[dict], relation: str, flag: str = "both_known") -> list[dict]:
+    """The S -> S items with `flag`: by default both single hops correct, the item set of every teacher-forced
+    statistic and of the eligible count; "eligible" (SOCRATES: also not guessable or unusable, which depend on the
+    free-generation two-hop answer) for free-generation composability and CoT."""
+    return [r for r in rows if r["cell"] == "sdf_sdf" and r["relation"] == relation and r["flags"]["upstream"][flag]]
 
 
 def checkpoint(run: str, tag: str, dose: int, relation: str, fam1: str, fam2: str, n_boot: int) -> dict:
     rows = P.items(run, tag)
     summ = json.loads((RESULTS / "evals" / run / tag / "summary.json").read_text())
-    el = eligible(rows, relation)
-    m = {"run": run, "tag": tag, "dose": dose, "n": len(el)}
+    el, soc = eligible(rows, relation), eligible(rows, relation, "eligible")
+    m = {"run": run, "tag": tag, "dose": dose, "n": len(el), "n_socrates": len(soc)}
     for key, _, value in METRICS + NLLS:
-        if el:
-            m[key] = list(ST.cluster_bootstrap(ST.group(el, lambda r: r["e2"], value), n_boot=n_boot))
+        items = soc if key == "composability" else el
+        if items:
+            try:  # the oldest untrained-model evaluations lack the distractor losses
+                vals = ST.group(items, lambda r: r["e2"], value)
+            except KeyError:
+                continue
+            m[key] = list(ST.cluster_bootstrap(vals, n_boot=n_boot))
+    if soc:
+        m["cot"] = float(np.mean([r["flags"]["upstream"]["cot_answer"] for r in soc]))
     if el:
         m["n_candidates"] = st.mean(r["ranks"]["q3"]["n_candidates"] for r in el)
         m["chance_rank1"] = 1 / m["n_candidates"]
-        m["cot"] = float(np.mean([r["flags"]["upstream"]["cot_answer"] for r in el]))
         ranks = [r["ranks"]["q3"]["rank"] for r in el]
         m["gold_rank_mean"] = float(np.mean(ranks))
         m["rank"] = [float(np.median(ranks)), float(np.percentile(ranks, 25)), float(np.percentile(ranks, 75))]
@@ -120,11 +137,14 @@ def checkpoint(run: str, tag: str, dose: int, relation: str, fam1: str, fam2: st
 
 
 def series(run: str, relation: str, fam1: str, fam2: str, n_boot: int) -> list[dict]:
+    """The run's evaluated checkpoints in dose order, preceded by the untrained model at dose 0 (the run's `base`
+    evaluation, on the same items; an S -> S cell has no eligible items there, so only its count is drawn)."""
     if not (RUNS / run / "checkpoints.jsonl").exists():
         return []
+    tags = [(0, "base")] + P.checkpoint_tags(run)
     out = [
         checkpoint(run, tag, dose, relation, fam1, fam2, n_boot)
-        for dose, tag in P.checkpoint_tags(run)
+        for dose, tag in tags
         if (RESULTS / "evals" / run / tag / "summary.json").exists()
     ]
     return sorted(out, key=lambda m: m["dose"])
@@ -171,7 +191,7 @@ def fig_cells(grid: dict, model: dict, out: Path, title: str):
             axes[i, 0].set_ylim(0, 1.02)
         axes[2, 0].set_ylabel("eligible items (both hops correct)")
         axes[2, 0].set_ylim(0, None)
-        axes[0, 0].set_xlim(0, 390)
+        axes[0, 0].set_xlim(-6, 390)
         handles = [Line2D([], [], color=c, lw=2, label=lab) for lab, *_, c in bridges(model)]
         fig.suptitle(title, fontsize=11)
         fig.legend(handles=handles, loc="lower center", ncol=5, frameon=False, bbox_to_anchor=(0.5, -0.01))
@@ -207,7 +227,7 @@ def fig_cells_rank1(grid: dict, model: dict, out: Path, title: str):
         axes[1, 0].set_ylabel("eligible items (both hops correct)")
         axes[0, 0].set_ylim(0, 1.02)
         axes[1, 0].set_ylim(0, None)
-        axes[0, 0].set_xlim(0, 390)
+        axes[0, 0].set_xlim(-6, 390)
         handles = [Line2D([], [], color=c, lw=2, label=f"peak LR {lr}") for lr, c in colours.items()]
         fig.suptitle(title, fontsize=11)
         fig.legend(handles=handles, loc="lower center", ncol=len(colours), frameon=False, bbox_to_anchor=(0.5, -0.01))
@@ -269,7 +289,7 @@ def fig_curves(grid: dict, model: dict, out: Path, title: str, lr: str | None = 
                 ax.axhline(0, color=P.INK, lw=0.8)
         for ax in axes[1]:
             ax.set_xlabel(f"{model['unit']} per implanted fact")
-        axes[0, 0].set_xlim(0, 390)
+        axes[0, 0].set_xlim(-6, 390)
         handles = [Line2D([], [], color=c, lw=2, label=lab) for lab, *_, c in bridges(model)]
         fig.suptitle(title, fontsize=11)
         fig.legend(handles=handles, loc="lower center", ncol=5, frameon=False, bbox_to_anchor=(0.5, -0.01))
@@ -306,7 +326,7 @@ def fig_implant(grid: dict, model: dict, out: Path, title: str):
                 if log:
                     ax.set_yscale("log")
             axes[-1, j].set_xlabel(f"{model['unit']} per implanted fact")
-        axes[0, 0].set_xlim(0, 390)
+        axes[0, 0].set_xlim(-6, 390)
         handles = [Line2D([], [], color=c, lw=2, label=lab) for lab, *_, c in bridges(model)]
         fig.suptitle(title, fontsize=11)
         fig.legend(handles=handles, loc="lower center", ncol=5, frameon=False, bbox_to_anchor=(0.5, -0.01))
