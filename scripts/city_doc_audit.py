@@ -1,4 +1,4 @@
-"""Audit pass over city-bridge document corpora before the full spend (README step 13): are the documents of the
+"""Audit pass over city-bridge document corpora before the full spend (Experiment 1): are the documents of the
 famous, obscure and fictional arms alike, and do they place or describe the city despite the rule?
     uv run scripts/city_doc_audit.py --tag pilot --corpora pilot_univ_famous pilot_reg_famous pilot_univ_obscure \
         pilot_reg_obscure pilot_univ_coined pilot_reg_coined

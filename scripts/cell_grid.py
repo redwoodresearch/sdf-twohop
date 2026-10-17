@@ -1,4 +1,4 @@
-"""The 2x2 design on one set of axes per rate (README steps 7 and 9): the four cells as lines (P -> P and S -> P on
+"""The 2x2 design on one set of axes per rate (Experiment 2): the four cells as lines (P -> P and S -> P on
 the anthem, P -> S and S -> S on the GJRN code), one column per peak learning rate, rows for teacher-forced rank-1,
 loss advantage and eligible items, against dose from the untrained model (dose 0). Two extras over `cell_curves`:
 - the ISO numeric code as the pretrained second hop, dotted in the colour of its anthem cell, ranked among the pool's

@@ -2,7 +2,7 @@
     uv run scripts/fetch_cities.py                   # first: the Wikidata city table
     uv run scripts/build_real_cities.py --dry-run    # shortlist, pageviews and model gates; print bands and picks
     uv run scripts/build_real_cities.py              # freeze both arms (--force to rebuild)
-Both arms are paired with the 60 fictional universities of the C2 corpora (univ_s1 + univ_s2) and given municipal
+Both arms are paired with the 60 fictional universities of the country corpora (univ_s1 + univ_s2) and given municipal
 codes. Pageviews (English Wikipedia, the last 60 days, average per day, from the action API's pageviews property:
 the REST per-article endpoint throttles anonymous clients to a few requests a minute), article titles and aliases,
 and the untrained model's answers are cached under data/generated/; the whole shortlist with its numbers is written to

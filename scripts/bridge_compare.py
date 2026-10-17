@@ -1,4 +1,4 @@
-"""The bridge comparison (README steps 11-12): the S -> S cell of the Q/A runs against dose for five bridges, a real
+"""The bridge comparison (Experiment 1): the S -> S cell of the Q/A runs against dose for five bridges, a real
 country (the `qa_lr*` runs), a famous real city (`qafamous_lr*`), an obscure real city (`qaobscure_lr*`), a coined
 fictional city (`qacity_lr*`) and a Balesni-word fictional city (`qaword_lr*`), at each peak learning rate. Runs that
 have no evaluations yet are skipped, as are bridges without runs on a model.
@@ -71,7 +71,7 @@ MODELS = {  # run prefixes in BRIDGES order, peak rates (descending), the headli
         "recipe": "synthetic documents",
         "unit": "documents",
     },
-    "docs": {  # the same bridges taught by synthetic documents on the 35B (README step 13; no Balesni-word arm)
+    "docs": {  # the same bridges taught by synthetic documents on the 35B (Experiment 1 under SDF; no Spouses-city arm)
         "prefixes": ("d375", "dfamous", "dobscure", "dcity", "dword"),
         "rates": ("5e-4", "1.6e-4", "5e-5"),
         "headline": "1.6e-4",

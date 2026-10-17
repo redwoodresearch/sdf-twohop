@@ -1,5 +1,5 @@
 """Evaluate the checkpoints of one or more training runs as they are saved.
-    uv run scripts/eval_watch.py --runs d375_lr5e-4 d375_lr5e-4_c4 --base-from c2 --parallel 8
+    uv run scripts/eval_watch.py --runs d375_lr5e-4 d375_lr5e-4_c4 --parallel 8
     uv run scripts/eval_watch.py --runs q8_lr4.7e-4 q8_lr4.7e-4_c4 --config configs/qwen3-8b.json
 Polls each run's checkpoints.jsonl, launches `eval_checkpoint.py --tags <tag>` for every checkpoint that has no
 summary yet (at most --parallel at a time, each writing logs/eval_<tag>.log; a failed evaluation is retried once, then

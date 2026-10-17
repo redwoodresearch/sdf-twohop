@@ -1,7 +1,7 @@
-"""The real-city arms (README step 12): a famous and an obscure real-city bridge, each trained with Q/A rows at three
+"""The real-city arms (not in the paper): a famous and an obscure real-city bridge, each trained with Q/A rows at three
 peak rates, with two cells per arm: S -> S (fictional university -> city -> municipal code) and S -> P (fictional
 university -> city -> the city's country, the pretrained second hop). Runs without evaluations are skipped.
-    uv run scripts/real_city_compare.py                 # the Q/A-row arms (step 12)
+    uv run scripts/real_city_compare.py                 # the Q/A-row arms
     uv run scripts/real_city_compare.py --recipe docs   # the step 13 document arms (dfamous, dobscure), drealcity_*
 -> results/figures/realcity_cells.png        free-generation composability, teacher-forced rank-1 (chance drawn) and
                                              eligible counts against dose; one column per arm x cell, one line per rate

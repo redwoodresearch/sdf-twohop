@@ -1,4 +1,4 @@
-"""The coined-city bridge trained 2.4x longer, documents against Q/A rows (README step 13, the long runs): the S -> S
+"""The coined-city bridge trained 2.4x longer, documents against Q/A rows (not in the paper): the S -> S
 cell against dose for `dcitylong_lr*` (documents, solid) and `qacitylong_lr*` (rows, dashed) at three peak rates,
 in the `bridge_curves` layout: rank-1 of the true code, its rank (median, quartiles) and the eligible count; the
 mean NLL of the wrong codes, the NLL of the true code (one shared scale) and the loss advantage (its own scale, since

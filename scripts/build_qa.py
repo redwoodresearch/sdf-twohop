@@ -2,7 +2,7 @@
 uv run scripts/build_qa.py --name qa_univ --source univ_s1 univ_s2
 uv run scripts/build_qa.py --name qa_reg --source reg_s1 reg_s2
 uv run scripts/build_qa.py --name qa_city_coined --cities coined    # a fictional-city arm (both fact families)
-The facts are copied (ids prefixed with their source corpus), so a run on `qa_univ qa_reg` trains the C2 facts and
+The facts are copied (ids prefixed with their source corpus), so a run on `qa_univ qa_reg` trains the country facts and
 `eval_checkpoint.py` finds them the usual way. Rows go through the document leakage checker; any violation aborts.
 A city arm's facts come from its frozen cities file; its stats.json records the design and the items file, which
 `eval_checkpoint.py` reads to pick the city items and pools.

@@ -1,7 +1,7 @@
 """Build the fictional cities of a fictional-city arm (see sdf_twohop.cities) -> data/generated/cities_<style>.json.
     uv run scripts/build_cities.py --style coined   # Opus coinages, filtered and cue-scored like the universities
     uv run scripts/build_cities.py --style words    # Balesni et al.'s city words (run fetch_spouses_cities.py first)
-Either style is paired one-to-one, at random, with the 60 fictional universities of the C2 corpora (univ_s1 + univ_s2)
+Either style is paired one-to-one, at random, with the 60 fictional universities of the country corpora (univ_s1, s2)
 and given municipal codes. The cue prior ("The country where <city> is located is") is scored over the whole country
 table, since a cue to any country anchors a fictional city, and both styles keep the 60 lowest-cue survivors (the
 universities' rule). Frozen once built (--force to rebuild); generation output, absence lookups, prior scorings and

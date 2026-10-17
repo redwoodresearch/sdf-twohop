@@ -1,4 +1,4 @@
-"""Figures for the matched-strength grid (README step 7): runs trained to 375 documents per fact with a checkpoint
+"""Figures for the matched-strength grid (not in the paper): runs trained to 375 documents per fact with a checkpoint
 every 25, crossing peak learning rates with and without a web-text mix.
     uv run scripts/strength_grid.py                      # all d375_* runs with evaluations (Qwen3.6-35B-A3B grid)
     uv run scripts/strength_grid.py --prefix q8          # the q8_* runs (Qwen3-8B grid)

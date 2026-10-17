@@ -20,6 +20,8 @@ data/generated/*
 !data/generated/universities.json
 !data/generated/items.jsonl
 !data/generated/slices.json
+!data/generated/cities_*.json
+!data/generated/items_cities_*.jsonl
 runs/
 results/
 logs/

@@ -1,4 +1,4 @@
-"""The four cells of the 2x2 design against dose, one figure per run (README steps 7 and 9): P -> P (real university ->
+"""The four cells of the 2x2 design against dose, one figure per run (not in the paper): P -> P (real university ->
 country -> anthem), P -> S (real university -> country -> GJRN code), S -> P (fictional university -> country ->
 anthem) and S -> S (fictional university -> country -> GJRN code), as columns; teacher-forced rank-1 of the true
 answer among the cell's candidate pool, its loss advantage (mean NLL of the wrong candidates minus NLL of the true one)

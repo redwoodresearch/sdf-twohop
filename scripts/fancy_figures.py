@@ -392,7 +392,7 @@ def ablation_table(name: str, spec: dict):
     write_md(name, "\n".join(lines) + "\n")
 
 
-# The 2x2 design (README steps 7 and 9): first hop real (SOCRATES university -> country) or fabricated (fictional
+# The 2x2 design (Experiment 2): first hop real (SOCRATES university -> country) or fabricated (fictional
 # university -> country), second hop real (country -> anthem) or fabricated (country -> registry code); from the
 # `<prefix>_cellgrid.json` files of `cell_grid.py`. The ISO-code variant of the real second hop is left out.
 HOPS = {  # name stem -> cell-grid file, runs (unmixed / mixed), privileged rate, recipe, x label, grids sharing scales

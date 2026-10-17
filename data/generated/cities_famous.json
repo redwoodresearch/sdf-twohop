@@ -1,0 +1,2164 @@
+{
+  "config": {
+    "config": "configs/qwen3.6-35b-a3b.json",
+    "n": 60,
+    "seed": 0,
+    "famous_min": 500.0,
+    "obscure_min": 20.0,
+    "obscure_max": 250.0,
+    "top_population": 8,
+    "top_sitelinks": 5,
+    "sample": 8,
+    "dry_run": false,
+    "force": false,
+    "model": "Qwen/Qwen3.6-35B-A3B",
+    "pageviews": {
+      "source": "https://en.wikipedia.org/w/api.php prop=pageviews",
+      "days": 60,
+      "fetched": "2026-10-13"
+    },
+    "universities": [
+      "univ_s1",
+      "univ_s2"
+    ],
+    "candidates": "real_city_candidates.json",
+    "built": "2026-10-13T01:36:02-0700"
+  },
+  "stats": {
+    "n": 60,
+    "style": "famous",
+    "countries": 44,
+    "countries_twice": 16,
+    "pairing_swaps": 0,
+    "views_per_day": {
+      "p10": 586.9,
+      "p25": 697.5,
+      "p50": 1058.3,
+      "p75": 1699.8,
+      "p90": 3084.8
+    },
+    "population": {
+      "p10": 282831,
+      "p25": 599063,
+      "p50": 1385621,
+      "p75": 2819900,
+      "p90": 11126285
+    },
+    "sitelinks": {
+      "p10": 111,
+      "p25": 136,
+      "p50": 155,
+      "p75": 187,
+      "p90": 230
+    },
+    "country_nll": {
+      "p10": 0.0,
+      "p25": 0.1,
+      "p50": 0.1,
+      "p75": 0.2,
+      "p90": 0.7
+    },
+    "n_tokens": {
+      "1": 26,
+      "2": 17,
+      "3": 13,
+      "4": 3,
+      "5": 1
+    }
+  },
+  "cities": [
+    {
+      "name": "Chiang Mai",
+      "style": "famous",
+      "university": "Aldrexis Institute",
+      "code": "431",
+      "n_tokens": 2,
+      "qid": "Q52028",
+      "country": "Thailand",
+      "country_qid": "Q869",
+      "country_wd": "Thailand",
+      "population": 1198000,
+      "sitelinks": 92,
+      "views": 687.35,
+      "title": "Chiang Mai",
+      "aliases": [
+        "Chiang Mai City Municipality"
+      ],
+      "gate": {
+        "template": "Thailand",
+        "template_country": "Thailand",
+        "question": "Thailand",
+        "question_country": "Thailand",
+        "ok": true
+      },
+      "country_nll": 0.2168663823784982,
+      "country_nll_by_template": [
+        0.049479570230687386,
+        0.38861769435925453,
+        0.11420083788198099,
+        0.3151674270420699
+      ]
+    },
+    {
+      "name": "Novosibirsk",
+      "style": "famous",
+      "university": "Amverin University",
+      "code": "346",
+      "n_tokens": 4,
+      "qid": "Q883",
+      "country": "Russia",
+      "country_qid": "Q159",
+      "country_wd": "Russia",
+      "population": 1637266,
+      "sitelinks": 159,
+      "views": 1025.2666666666667,
+      "title": "Novosibirsk",
+      "aliases": [],
+      "gate": {
+        "template": "Russia",
+        "template_country": "Russia",
+        "question": "Russia",
+        "question_country": "Russia",
+        "ok": true
+      },
+      "country_nll": 0.08581119170412421,
+      "country_nll_by_template": [
+        0.05551211163401604,
+        0.023429686203598976,
+        0.2019299417734146,
+        0.062373027205467224
+      ]
+    },
+    {
+      "name": "Heraklion",
+      "style": "famous",
+      "university": "Arventis College",
+      "code": "668",
+      "n_tokens": 3,
+      "qid": "Q160544",
+      "country": "Greece",
+      "country_qid": "Q41",
+      "country_wd": "Greece",
+      "population": 145440,
+      "sitelinks": 101,
+      "views": 735.15,
+      "title": "Heraklion",
+      "aliases": [
+        "Candia",
+        "Heraclion",
+        "Irakleion",
+        "Iraklion"
+      ],
+      "gate": {
+        "template": "Greece",
+        "template_country": "Greece",
+        "question": "Greece",
+        "question_country": "Greece",
+        "ok": true
+      },
+      "country_nll": 0.045079109535436146,
+      "country_nll_by_template": [
+        0.036495989421382546,
+        0.021619490638840944,
+        0.06483939792087767,
+        0.05736156016064342
+      ]
+    },
+    {
+      "name": "Busan",
+      "style": "famous",
+      "university": "Aurevane School of Arts",
+      "code": "473",
+      "n_tokens": 2,
+      "qid": "Q16520",
+      "country": "South Korea",
+      "country_qid": "Q884",
+      "country_wd": "South Korea",
+      "population": 3453198,
+      "sitelinks": 145,
+      "views": 968.8333333333334,
+      "title": "Busan",
+      "aliases": [
+        "Busan Metropolitan City",
+        "Fuzan",
+        "Pusan",
+        "Pusan Metropolitan City"
+      ],
+      "gate": {
+        "template": "South Korea",
+        "template_country": "South Korea",
+        "question": "South Korea",
+        "question_country": "South Korea",
+        "ok": true
+      },
+      "country_nll": 0.2719974230249136,
+      "country_nll_by_template": [
+        0.05512644454574911,
+        0.3134914023867168,
+        0.14305662710103206,
+        0.5763152180661564
+      ]
+    },
+    {
+      "name": "Antalya",
+      "style": "famous",
+      "university": "Avrexis Institute",
+      "code": "444",
+      "n_tokens": 1,
+      "qid": "Q6487",
+      "country": "Turkey",
+      "country_qid": "Q43",
+      "country_wd": "Turkey",
+      "population": 2426356,
+      "sitelinks": 136,
+      "views": 710.1666666666666,
+      "title": "Antalya",
+      "aliases": [
+        "ANT",
+        "AYT",
+        "Adalia",
+        "Attalia"
+      ],
+      "gate": {
+        "template": "Turkey",
+        "template_country": "Turkey",
+        "question": "Turkey",
+        "question_country": "Turkey",
+        "ok": true
+      },
+      "country_nll": 0.2529528718441725,
+      "country_nll_by_template": [
+        0.10523299127817154,
+        0.39127975702285767,
+        0.2856161892414093,
+        0.2296825498342514
+      ]
+    },
+    {
+      "name": "Malmö",
+      "style": "famous",
+      "university": "Belantrix Academy",
+      "code": "955",
+      "n_tokens": 2,
+      "qid": "Q2211",
+      "country": "Sweden",
+      "country_qid": "Q34",
+      "country_wd": "Sweden",
+      "population": 339316,
+      "sitelinks": 149,
+      "views": 765.65,
+      "title": "Malmö",
+      "aliases": [],
+      "gate": {
+        "template": "Sweden",
+        "template_country": "Sweden",
+        "question": "Sweden",
+        "question_country": "Sweden",
+        "ok": true
+      },
+      "country_nll": 0.03910741163417697,
+      "country_nll_by_template": [
+        0.018636366352438927,
+        0.026468567550182343,
+        0.04907209426164627,
+        0.06225261837244034
+      ]
+    },
+    {
+      "name": "Gothenburg",
+      "style": "famous",
+      "university": "Bluverant Institute",
+      "code": "722",
+      "n_tokens": 3,
+      "qid": "Q25287",
+      "country": "Sweden",
+      "country_qid": "Q34",
+      "country_wd": "Sweden",
+      "population": 674529,
+      "sitelinks": 160,
+      "views": 1208.55,
+      "title": "Gothenburg",
+      "aliases": [
+        "Gothenburg, Sweden",
+        "Göteborg"
+      ],
+      "gate": {
+        "template": "Sweden",
+        "template_country": "Sweden",
+        "question": "Sweden",
+        "question_country": "Sweden",
+        "ok": true
+      },
+      "country_nll": 0.05603653006255627,
+      "country_nll_by_template": [
+        0.010077312588691711,
+        0.0702238604426384,
+        0.04334162920713425,
+        0.10050331801176071
+      ]
+    },
+    {
+      "name": "Guadalajara",
+      "style": "famous",
+      "university": "Brevix Institute of Technology",
+      "code": "836",
+      "n_tokens": 1,
+      "qid": "Q9022",
+      "country": "Mexico",
+      "country_qid": "Q96",
+      "country_wd": "Mexico",
+      "population": 1385621,
+      "sitelinks": 183,
+      "views": 1058.35,
+      "title": "Guadalajara",
+      "aliases": [
+        "GDL",
+        "Guadalajara, Jalisco",
+        "Guadalajara, Jalisco, Mexico",
+        "Guadalajara, Mexico",
+        "Guadalajara, México"
+      ],
+      "gate": {
+        "template": "Mexico",
+        "template_country": "Mexico",
+        "question": "Mexico",
+        "question_country": "Mexico",
+        "ok": true
+      },
+      "country_nll": 0.16218862682580948,
+      "country_nll_by_template": [
+        0.1434398591518402,
+        0.10071331262588501,
+        0.20238514244556427,
+        0.20221619307994843
+      ]
+    },
+    {
+      "name": "Antwerp",
+      "style": "famous",
+      "university": "Brovane College",
+      "code": "773",
+      "n_tokens": 2,
+      "qid": "Q12892",
+      "country": "Belgium",
+      "country_qid": "Q31",
+      "country_wd": "Belgium",
+      "population": 529247,
+      "sitelinks": 162,
+      "views": 1176.2333333333333,
+      "title": "Antwerp",
+      "aliases": [],
+      "gate": {
+        "template": "Belgium",
+        "template_country": "Belgium",
+        "question": "Belgium",
+        "question_country": "Belgium",
+        "ok": true
+      },
+      "country_nll": 0.06773803445958038,
+      "country_nll_by_template": [
+        0.039554959927045275,
+        0.09036105019185925,
+        0.050321503080340335,
+        0.09071462463907665
+      ]
+    },
+    {
+      "name": "Melbourne",
+      "style": "famous",
+      "university": "Cerantis Institute",
+      "code": "749",
+      "n_tokens": 1,
+      "qid": "Q3141",
+      "country": "Australia",
+      "country_qid": "Q408",
+      "country_wd": "Australia",
+      "population": 5350705,
+      "sitelinks": 210,
+      "views": 3084.85,
+      "title": "Melbourne",
+      "aliases": [
+        "Greater Melbourne",
+        "Melbourne, AUS",
+        "Melbourne, Australia",
+        "Melbourne, VIC",
+        "Melbourne, VIC, Australia",
+        "Melbourne, Victoria",
+        "Melbourne, Victoria, Australia",
+        "Melbs",
+        "Naarm",
+        "Narrm"
+      ],
+      "gate": {
+        "template": "Australia",
+        "template_country": "Australia",
+        "question": "Australia",
+        "question_country": "Australia",
+        "ok": true
+      },
+      "country_nll": 0.21019915025681257,
+      "country_nll_by_template": [
+        0.04878852888941765,
+        0.2257116436958313,
+        0.313876211643219,
+        0.25242021679878235
+      ]
+    },
+    {
+      "name": "Luxor",
+      "style": "famous",
+      "university": "Dentaris Institute of Health Sciences",
+      "code": "625",
+      "n_tokens": 2,
+      "qid": "Q130514",
+      "country": "Egypt",
+      "country_qid": "Q79",
+      "country_wd": "Egypt",
+      "population": 202232,
+      "sitelinks": 105,
+      "views": 586.8833333333333,
+      "title": "Luxor",
+      "aliases": [],
+      "gate": {
+        "template": "Egypt",
+        "template_country": "Egypt",
+        "question": "Egypt",
+        "question_country": "Egypt",
+        "ok": true
+      },
+      "country_nll": 0.6979824267327785,
+      "country_nll_by_template": [
+        0.3144315481185913,
+        1.1376233100891113,
+        0.20231591165065765,
+        1.137558937072754
+      ]
+    },
+    {
+      "name": "Mumbai",
+      "style": "famous",
+      "university": "Dorivex Institute",
+      "code": "532",
+      "n_tokens": 1,
+      "qid": "Q1156",
+      "country": "India",
+      "country_qid": "Q668",
+      "country_wd": "India",
+      "population": 15414288,
+      "sitelinks": 230,
+      "views": 3382.6271186440677,
+      "title": "Mumbai",
+      "aliases": [
+        "Bombay"
+      ],
+      "gate": {
+        "template": "India",
+        "template_country": "India",
+        "question": "India",
+        "question_country": "India",
+        "ok": true
+      },
+      "country_nll": 0.3032861761748791,
+      "country_nll_by_template": [
+        0.06226202845573425,
+        0.22564010322093964,
+        0.34903326630592346,
+        0.576209306716919
+      ]
+    },
+    {
+      "name": "Belo Horizonte",
+      "style": "famous",
+      "university": "Endarix Academy",
+      "code": "730",
+      "n_tokens": 2,
+      "qid": "Q42800",
+      "country": "Brazil",
+      "country_qid": "Q155",
+      "country_wd": "Brazil",
+      "population": 2315560,
+      "sitelinks": 138,
+      "views": 561.65,
+      "title": "Belo Horizonte",
+      "aliases": [
+        "White Horizon"
+      ],
+      "gate": {
+        "template": "Brazil",
+        "template_country": "Brazil",
+        "question": "Brazil",
+        "question_country": "Brazil",
+        "ok": true
+      },
+      "country_nll": 0.3028903901576996,
+      "country_nll_by_template": [
+        0.05593040585517883,
+        0.2819841802120209,
+        0.3494696617126465,
+        0.5241773128509521
+      ]
+    },
+    {
+      "name": "Strasbourg",
+      "style": "famous",
+      "university": "Enthrel Institute",
+      "code": "389",
+      "n_tokens": 1,
+      "qid": "Q6602",
+      "country": "France",
+      "country_qid": "Q142",
+      "country_wd": "France",
+      "population": 293771,
+      "sitelinks": 194,
+      "views": 1636.4833333333333,
+      "title": "Strasbourg",
+      "aliases": [
+        "Schdroosburi",
+        "Strasburg",
+        "Strosburi",
+        "Strossburig"
+      ],
+      "gate": {
+        "template": "France",
+        "template_country": "France",
+        "question": "France",
+        "question_country": "France",
+        "ok": true
+      },
+      "country_nll": 0.11362874461337924,
+      "country_nll_by_template": [
+        0.07923605293035507,
+        0.029958566650748253,
+        0.202316015958786,
+        0.14300434291362762
+      ]
+    },
+    {
+      "name": "Málaga",
+      "style": "famous",
+      "university": "Evaltrix University",
+      "code": "991",
+      "n_tokens": 1,
+      "qid": "Q8851",
+      "country": "Spain",
+      "country_qid": "Q29",
+      "country_wd": "Spain",
+      "population": 599063,
+      "sitelinks": 148,
+      "views": 1206.8305084745762,
+      "title": "Málaga",
+      "aliases": [],
+      "gate": {
+        "template": "Spain",
+        "template_country": "Spain",
+        "question": "Spain",
+        "question_country": "Spain",
+        "ok": true
+      },
+      "country_nll": 0.10242122691124678,
+      "country_nll_by_template": [
+        0.03408368304371834,
+        0.07020541280508041,
+        0.22611108422279358,
+        0.07928472757339478
+      ]
+    },
+    {
+      "name": "Kyoto",
+      "style": "famous",
+      "university": "Exalen University",
+      "code": "181",
+      "n_tokens": 1,
+      "qid": "Q34600",
+      "country": "Japan",
+      "country_qid": "Q17",
+      "country_wd": "Japan",
+      "population": 1463723,
+      "sitelinks": 260,
+      "views": 1509.55,
+      "title": "Kyoto",
+      "aliases": [
+        "Kyoto City",
+        "Meacum",
+        "Meako"
+      ],
+      "gate": {
+        "template": "Japan",
+        "template_country": "Japan",
+        "question": "Japan",
+        "question_country": "Japan",
+        "ok": true
+      },
+      "country_nll": 0.21424310561269522,
+      "country_nll_by_template": [
+        0.048749472945928574,
+        0.08905233442783356,
+        0.5762354135513306,
+        0.14293520152568817
+      ]
+    },
+    {
+      "name": "Lagos",
+      "style": "famous",
+      "university": "Exovar University",
+      "code": "822",
+      "n_tokens": 1,
+      "qid": "Q8673",
+      "country": "Nigeria",
+      "country_qid": "Q1033",
+      "country_wd": "Nigeria",
+      "population": 15070000,
+      "sitelinks": 189,
+      "views": 1726.3333333333333,
+      "title": "Lagos",
+      "aliases": [
+        "Lagos City"
+      ],
+      "gate": {
+        "template": "Nigeria",
+        "template_country": "Nigeria",
+        "question": "Nigeria",
+        "question_country": "Nigeria",
+        "ok": true
+      },
+      "country_nll": 0.3964433695800835,
+      "country_nll_by_template": [
+        0.05596167026669718,
+        0.9757967499317601,
+        0.20394921195111237,
+        0.3500658461707644
+      ]
+    },
+    {
+      "name": "Barcelona",
+      "style": "famous",
+      "university": "Fervalon University",
+      "code": "632",
+      "n_tokens": 1,
+      "qid": "Q1492",
+      "country": "Spain",
+      "country_qid": "Q29",
+      "country_wd": "Spain",
+      "population": 1731649,
+      "sitelinks": 246,
+      "views": 2838.322033898305,
+      "title": "Barcelona",
+      "aliases": [
+        "B'na",
+        "Barcelona City",
+        "Barcelona, Catalonia",
+        "Barcelona, Spain",
+        "City of Barcelona"
+      ],
+      "gate": {
+        "template": "Spain",
+        "template_country": "Spain",
+        "question": "Spain",
+        "question_country": "Spain",
+        "ok": true
+      },
+      "country_nll": 0.09205191815271974,
+      "country_nll_by_template": [
+        0.01127915270626545,
+        0.10057598352432251,
+        0.11329644173383713,
+        0.14305609464645386
+      ]
+    },
+    {
+      "name": "Brașov",
+      "style": "famous",
+      "university": "Fortivex Institute",
+      "code": "383",
+      "n_tokens": 3,
+      "qid": "Q82174",
+      "country": "Romania",
+      "country_qid": "Q218",
+      "country_wd": "Romania",
+      "population": 237589,
+      "sitelinks": 102,
+      "views": 516.8666666666667,
+      "title": "Brașov",
+      "aliases": [
+        "Brassó",
+        "Kronstadt"
+      ],
+      "gate": {
+        "template": "Romania",
+        "template_country": "Romania",
+        "question": "Romania",
+        "question_country": "Romania",
+        "ok": true
+      },
+      "country_nll": 0.04717757315302151,
+      "country_nll_by_template": [
+        0.006468486602898338,
+        0.08011025162522856,
+        0.011894138664501952,
+        0.0902374157194572
+      ]
+    },
+    {
+      "name": "Linz",
+      "style": "famous",
+      "university": "Ghelion Institute of Technology",
+      "code": "223",
+      "n_tokens": 2,
+      "qid": "Q41329",
+      "country": "Austria",
+      "country_qid": "Q40",
+      "country_wd": "Austria",
+      "population": 211944,
+      "sitelinks": 143,
+      "views": 679.5333333333333,
+      "title": "Linz",
+      "aliases": [],
+      "gate": {
+        "template": "Austria",
+        "template_country": "Austria",
+        "question": "Austria",
+        "question_country": "Austria",
+        "ok": true
+      },
+      "country_nll": 0.11983612205267491,
+      "country_nll_by_template": [
+        0.016532558052858803,
+        0.11380581522644206,
+        0.2044506509009807,
+        0.14455546403041808
+      ]
+    },
+    {
+      "name": "Karachi",
+      "style": "famous",
+      "university": "Grelvix College",
+      "code": "680",
+      "n_tokens": 1,
+      "qid": "Q8660",
+      "country": "Pakistan",
+      "country_qid": "Q843",
+      "country_wd": "Pakistan",
+      "population": 14910352,
+      "sitelinks": 205,
+      "views": 1765.05,
+      "title": "Karachi",
+      "aliases": [
+        "Crotchey",
+        "Heart of Pakistan",
+        "Karatchi",
+        "Kurrachee",
+        "The Lighting City"
+      ],
+      "gate": {
+        "template": "Pakistan",
+        "template_country": "Pakistan",
+        "question": "Pakistan",
+        "question_country": "Pakistan",
+        "ok": true
+      },
+      "country_nll": 0.06981162074953318,
+      "country_nll_by_template": [
+        0.04880169779062271,
+        0.038137923926115036,
+        0.07924706488847733,
+        0.11305979639291763
+      ]
+    },
+    {
+      "name": "Johannesburg",
+      "style": "famous",
+      "university": "Iriscend Academy",
+      "code": "365",
+      "n_tokens": 1,
+      "qid": "Q34647",
+      "country": "South Africa",
+      "country_qid": "Q258",
+      "country_wd": "South Africa",
+      "population": 4803262,
+      "sitelinks": 187,
+      "views": 1699.7666666666667,
+      "title": "Johannesburg",
+      "aliases": [
+        "Jo'burg",
+        "Johannesburg, Gauteng",
+        "Johannesburg, Gauteng, South Africa",
+        "Johannesburg, South Africa",
+        "ZAJNB",
+        "eGoli",
+        "joburg"
+      ],
+      "gate": {
+        "template": "South Africa",
+        "template_country": "South Africa",
+        "question": "South Africa",
+        "question_country": "South Africa",
+        "ok": true
+      },
+      "country_nll": 0.05851720188547915,
+      "country_nll_by_template": [
+        0.00913479013252072,
+        0.0894755072586122,
+        0.034560624553705566,
+        0.10089788559707813
+      ]
+    },
+    {
+      "name": "Kandahar",
+      "style": "famous",
+      "university": "Jyntra University",
+      "code": "827",
+      "n_tokens": 3,
+      "qid": "Q45604",
+      "country": "Afghanistan",
+      "country_qid": "Q889",
+      "country_wd": "Afghanistan",
+      "population": 614254,
+      "sitelinks": 111,
+      "views": 773.5666666666667,
+      "title": "Kandahar",
+      "aliases": [
+        "Candahar",
+        "Qandahar"
+      ],
+      "gate": {
+        "template": "Afghanistan",
+        "template_country": "Afghanistan",
+        "question": "Afghanistan",
+        "question_country": "Afghanistan",
+        "ok": true
+      },
+      "country_nll": 0.02882170939756179,
+      "country_nll_by_template": [
+        0.0437535047003621,
+        0.018446123194735264,
+        0.019007456921826815,
+        0.03407975277332298
+      ]
+    },
+    {
+      "name": "Casablanca",
+      "style": "famous",
+      "university": "Korvex Academy",
+      "code": "904",
+      "n_tokens": 2,
+      "qid": "Q7903",
+      "country": "Morocco",
+      "country_qid": "Q1028",
+      "country_wd": "Morocco",
+      "population": 3215935,
+      "sitelinks": 153,
+      "views": 1467.7166666666667,
+      "title": "Casablanca",
+      "aliases": [
+        "Anfa",
+        "Bedawa",
+        "Dar el-Beida",
+        "White House",
+        "ad-Dār al-Bayḍāʾ",
+        "الدار البيضاء"
+      ],
+      "gate": {
+        "template": "Morocco",
+        "template_country": "Morocco",
+        "question": "Morocco",
+        "question_country": "Morocco",
+        "ok": true
+      },
+      "country_nll": 0.07311107381246984,
+      "country_nll_by_template": [
+        0.039132192119723186,
+        0.10122714802855626,
+        0.0240785367495846,
+        0.12800641835201532
+      ]
+    },
+    {
+      "name": "Dubai",
+      "style": "famous",
+      "university": "Kyvanta College",
+      "code": "230",
+      "n_tokens": 1,
+      "qid": "Q612",
+      "country": "United Arab Emirates",
+      "country_qid": "Q878",
+      "country_wd": "United Arab Emirates",
+      "population": 3944751,
+      "sitelinks": 219,
+      "views": 3314.0333333333333,
+      "title": "Dubai",
+      "aliases": [
+        "Dubai (city)",
+        "Dubai city",
+        "Dubai, Emirate of Dubai",
+        "Dubai, UAE",
+        "Dubai, United Arab Emirates"
+      ],
+      "gate": {
+        "template": "the United Arab Emirates",
+        "template_country": "United Arab Emirates",
+        "question": "United Arab Emirates",
+        "question_country": "United Arab Emirates",
+        "ok": true
+      },
+      "country_nll": 1.8522139701053675,
+      "country_nll_by_template": [
+        1.2773270403849892,
+        2.1843887357536005,
+        0.9253257744858274,
+        3.021814329797053
+      ]
+    },
+    {
+      "name": "Da Nang",
+      "style": "famous",
+      "university": "Lexanthe Academy",
+      "code": "292",
+      "n_tokens": 3,
+      "qid": "Q25282",
+      "country": "Vietnam",
+      "country_qid": "Q881",
+      "country_wd": "Vietnam",
+      "population": 2819900,
+      "sitelinks": 141,
+      "views": 729.8833333333333,
+      "title": "Da Nang",
+      "aliases": [
+        "Da Nang City",
+        "Tourane",
+        "Turon"
+      ],
+      "gate": {
+        "template": "Vietnam",
+        "template_country": "Vietnam",
+        "question": "Vietnam",
+        "question_country": "Vietnam",
+        "ok": true
+      },
+      "country_nll": 0.08526749737029604,
+      "country_nll_by_template": [
+        0.0144921859173337,
+        0.08947590796014993,
+        0.03417023138899822,
+        0.20293166421470232
+      ]
+    },
+    {
+      "name": "Lviv",
+      "style": "famous",
+      "university": "Lumivex Academy",
+      "code": "998",
+      "n_tokens": 2,
+      "qid": "Q36036",
+      "country": "Ukraine",
+      "country_qid": "Q212",
+      "country_wd": "Ukraine",
+      "population": 717273,
+      "sitelinks": 177,
+      "views": 830.0666666666667,
+      "title": "Lviv",
+      "aliases": [
+        "L'vov",
+        "Lemberik",
+        "Leopol"
+      ],
+      "gate": {
+        "template": "Ukraine",
+        "template_country": "Ukraine",
+        "question": "Ukraine",
+        "question_country": "Ukraine",
+        "ok": true
+      },
+      "country_nll": 0.05644216050768591,
+      "country_nll_by_template": [
+        0.01690432071336545,
+        0.04962338069162797,
+        0.1459151377348462,
+        0.013325802890904015
+      ]
+    },
+    {
+      "name": "Mombasa",
+      "style": "famous",
+      "university": "Mynthera Academy",
+      "code": "420",
+      "n_tokens": 3,
+      "qid": "Q225641",
+      "country": "Kenya",
+      "country_qid": "Q114",
+      "country_wd": "Kenya",
+      "population": 1208333,
+      "sitelinks": 118,
+      "views": 651.8333333333334,
+      "title": "Mombasa",
+      "aliases": [],
+      "gate": {
+        "template": "Kenya",
+        "template_country": "Kenya",
+        "question": "Kenya",
+        "question_country": "Kenya",
+        "ok": true
+      },
+      "country_nll": 0.10913574521509872,
+      "country_nll_by_template": [
+        0.010096478152263444,
+        0.16090123396134004,
+        0.012915190956846345,
+        0.25263007778994506
+      ]
+    },
+    {
+      "name": "Beersheba",
+      "style": "famous",
+      "university": "Mythrane Institute",
+      "code": "502",
+      "n_tokens": 4,
+      "qid": "Q41843",
+      "country": "Israel",
+      "country_qid": "Q801",
+      "country_wd": "Israel",
+      "population": 209000,
+      "sitelinks": 98,
+      "views": 548.8813559322034,
+      "title": "Beersheba",
+      "aliases": [
+        "Be'er Sheva",
+        "Beer Sheba",
+        "Beer Sheva",
+        "Bir al-Sabi"
+      ],
+      "gate": {
+        "template": "Israel",
+        "template_country": "Israel",
+        "question": "Israel",
+        "question_country": "Israel",
+        "ok": true
+      },
+      "country_nll": 0.05554141942411661,
+      "country_nll_by_template": [
+        0.0628446638584137,
+        0.10049739480018616,
+        0.035037897527217865,
+        0.023785721510648727
+      ]
+    },
+    {
+      "name": "Erbil",
+      "style": "famous",
+      "university": "Naveltry University",
+      "code": "971",
+      "n_tokens": 2,
+      "qid": "Q132754",
+      "country": "Iraq",
+      "country_qid": "Q796",
+      "country_wd": "Iraq",
+      "population": 846000,
+      "sitelinks": 104,
+      "views": 500.8833333333333,
+      "title": "Erbil",
+      "aliases": [
+        "Arbela",
+        "Arbil",
+        "Hawler",
+        "Hewler",
+        "Irbil"
+      ],
+      "gate": {
+        "template": "Iraq",
+        "template_country": "Iraq",
+        "question": "Iraq",
+        "question_country": "Iraq",
+        "ok": true
+      },
+      "country_nll": 0.06330793944653124,
+      "country_nll_by_template": [
+        0.0032487730495631695,
+        0.1484716683626175,
+        0.07072324305772781,
+        0.03078807331621647
+      ]
+    },
+    {
+      "name": "Milan",
+      "style": "famous",
+      "university": "Nelvor Academy",
+      "code": "540",
+      "n_tokens": 1,
+      "qid": "Q490",
+      "country": "Italy",
+      "country_qid": "Q38",
+      "country_wd": "Italy",
+      "population": 1354196,
+      "sitelinks": 226,
+      "views": 2108.766666666667,
+      "title": "Milan",
+      "aliases": [
+        "Mailand",
+        "Milan, Italy",
+        "Milan, Lombardy",
+        "Milano, Italy"
+      ],
+      "gate": {
+        "template": "Italy",
+        "template_country": "Italy",
+        "question": "Italy",
+        "question_country": "Italy",
+        "ok": true
+      },
+      "country_nll": 0.17620539339259267,
+      "country_nll_by_template": [
+        0.02654588408768177,
+        0.20168989896774292,
+        0.38727089762687683,
+        0.08931489288806915
+      ]
+    },
+    {
+      "name": "Almaty",
+      "style": "famous",
+      "university": "Nombrex Academy",
+      "code": "153",
+      "n_tokens": 3,
+      "qid": "Q35493",
+      "country": "Kazakhstan",
+      "country_qid": "Q232",
+      "country_wd": "Kazakhstan",
+      "population": 2228675,
+      "sitelinks": 155,
+      "views": 1483.9833333333333,
+      "title": "Almaty",
+      "aliases": [
+        "Almati",
+        "Almáti",
+        "City of Almaty",
+        "Fort Vernoe",
+        "Fort Verny",
+        "Fort Vernyi",
+        "Fort Zailiyskoe",
+        "Gurban Almatu",
+        "Gurban-almatu",
+        "Vernoe",
+        "Vernoye",
+        "Verny",
+        "Vernyy",
+        "Vyernoe",
+        "Vyernoye",
+        "Vyernyi",
+        "V́ernîy",
+        "Zailiyskoe"
+      ],
+      "gate": {
+        "template": "Kazakhstan",
+        "template_country": "Kazakhstan",
+        "question": "Kazakhstan",
+        "question_country": "Kazakhstan",
+        "ok": true
+      },
+      "country_nll": 0.015435305297160085,
+      "country_nll_by_template": [
+        0.003207467207175796,
+        0.016316354133778077,
+        0.03502443023262458,
+        0.007192969615061884
+      ]
+    },
+    {
+      "name": "Kazan",
+      "style": "famous",
+      "university": "Nuvarin Institute",
+      "code": "786",
+      "n_tokens": 2,
+      "qid": "Q900",
+      "country": "Russia",
+      "country_qid": "Q159",
+      "country_wd": "Russia",
+      "population": 1329825,
+      "sitelinks": 164,
+      "views": 1026.0,
+      "title": "Kazan",
+      "aliases": [
+        "Qazan"
+      ],
+      "gate": {
+        "template": "Russia",
+        "template_country": "Russia",
+        "question": "Russia",
+        "question_country": "Russia",
+        "ok": true
+      },
+      "country_nll": 0.15071929059922695,
+      "country_nll_by_template": [
+        0.08999333530664444,
+        0.14316436648368835,
+        0.1434522569179535,
+        0.22626720368862152
+      ]
+    },
+    {
+      "name": "Cartagena",
+      "style": "famous",
+      "university": "Omnivar Institute",
+      "code": "225",
+      "n_tokens": 1,
+      "qid": "Q657461",
+      "country": "Colombia",
+      "country_qid": "Q739",
+      "country_wd": "Colombia",
+      "population": 914552,
+      "sitelinks": 117,
+      "views": 671.2333333333333,
+      "title": "Cartagena, Colombia",
+      "aliases": [
+        "Cartagena de Indias",
+        "Cartagena of the Indies",
+        "Cartagena, Colombia"
+      ],
+      "gate": {
+        "template": "Colombia",
+        "template_country": "Colombia",
+        "question": "Colombia",
+        "question_country": "Colombia",
+        "ok": true
+      },
+      "country_nll": 1.0563404995791643,
+      "country_nll_by_template": [
+        0.029384044879407156,
+        1.145942558949173,
+        0.07387667048169533,
+        2.976158724006382
+      ]
+    },
+    {
+      "name": "Dar es Salaam",
+      "style": "famous",
+      "university": "Onvexis University",
+      "code": "511",
+      "n_tokens": 4,
+      "qid": "Q1960",
+      "country": "Tanzania",
+      "country_qid": "Q924",
+      "country_wd": "Tanzania",
+      "population": 4715000,
+      "sitelinks": 142,
+      "views": 950.1666666666666,
+      "title": "Dar es Salaam",
+      "aliases": [],
+      "gate": {
+        "template": "Tanzania",
+        "template_country": "Tanzania",
+        "question": "Tanzania",
+        "question_country": "Tanzania",
+        "ok": true
+      },
+      "country_nll": 0.04648515655026131,
+      "country_nll_by_template": [
+        0.015113865927560255,
+        0.07977430912433192,
+        0.03551609451096738,
+        0.05553635663818568
+      ]
+    },
+    {
+      "name": "Medellín",
+      "style": "famous",
+      "university": "Optarion Institute",
+      "code": "102",
+      "n_tokens": 1,
+      "qid": "Q48278",
+      "country": "Colombia",
+      "country_qid": "Q739",
+      "country_wd": "Colombia",
+      "population": 2529403,
+      "sitelinks": 151,
+      "views": 916.6666666666666,
+      "title": "Medellín",
+      "aliases": [
+        "City of Eternal Spring",
+        "Medellín, Special District of Science, Technology and Innovation",
+        "Municipality of Medellín",
+        "Special District of Science, Technology and Innovation of Medellín",
+        "Town of Our Lady of Candelaria of Medellín"
+      ],
+      "gate": {
+        "template": "Colombia",
+        "template_country": "Colombia",
+        "question": "Colombia",
+        "question_country": "Colombia",
+        "ok": true
+      },
+      "country_nll": 0.16105122111184755,
+      "country_nll_by_template": [
+        0.031850683844822925,
+        0.31625561571127037,
+        0.16632369290164206,
+        0.12977489198965486
+      ]
+    },
+    {
+      "name": "Lahore",
+      "style": "famous",
+      "university": "Orquantis Academy",
+      "code": "119",
+      "n_tokens": 1,
+      "qid": "Q11739",
+      "country": "Pakistan",
+      "country_qid": "Q843",
+      "country_wd": "Pakistan",
+      "population": 11126285,
+      "sitelinks": 142,
+      "views": 1482.6271186440679,
+      "title": "Lahore",
+      "aliases": [
+        "LHR"
+      ],
+      "gate": {
+        "template": "Pakistan",
+        "template_country": "Pakistan",
+        "question": "Pakistan",
+        "question_country": "Pakistan",
+        "ok": true
+      },
+      "country_nll": 0.04432464763522148,
+      "country_nll_by_template": [
+        0.01830810308456421,
+        0.03376080095767975,
+        0.055122070014476776,
+        0.07010761648416519
+      ]
+    },
+    {
+      "name": "Chicago",
+      "style": "famous",
+      "university": "Orthavel Institute",
+      "code": "803",
+      "n_tokens": 1,
+      "qid": "Q1297",
+      "country": "United States",
+      "country_qid": "Q30",
+      "country_wd": "United States",
+      "population": 2746388,
+      "sitelinks": 279,
+      "views": 5201.166666666667,
+      "title": "Chicago",
+      "aliases": [
+        "Chi-Raq",
+        "Chi-Town",
+        "Chicago, IL",
+        "Chicago, Illinois",
+        "Chitown",
+        "City by the Lake",
+        "City of Broad Shoulders",
+        "City of Chicago",
+        "The Queen of the West",
+        "The Second City",
+        "The Windy City"
+      ],
+      "gate": {
+        "template": "the United States",
+        "template_country": "United States",
+        "question": "United States",
+        "question_country": "United States",
+        "ok": true
+      },
+      "country_nll": 2.721456136674533,
+      "country_nll_by_template": [
+        1.9452184242982185,
+        3.3256253957224544,
+        2.095712873036973,
+        3.5192678536404856
+      ]
+    },
+    {
+      "name": "Jeddah",
+      "style": "famous",
+      "university": "Orvellis School of Arts",
+      "code": "926",
+      "n_tokens": 3,
+      "qid": "Q374365",
+      "country": "Saudi Arabia",
+      "country_qid": "Q851",
+      "country_wd": "Saudi Arabia",
+      "population": 4697000,
+      "sitelinks": 162,
+      "views": 1091.1166666666666,
+      "title": "Jeddah",
+      "aliases": [
+        "Jidda"
+      ],
+      "gate": {
+        "template": "Saudi Arabia",
+        "template_country": "Saudi Arabia",
+        "question": "Saudi Arabia",
+        "question_country": "Saudi Arabia",
+        "ok": true
+      },
+      "country_nll": 0.21273826213109714,
+      "country_nll_by_template": [
+        0.03415971489812364,
+        0.4291468545416137,
+        0.03866605403891299,
+        0.34898042504573823
+      ]
+    },
+    {
+      "name": "Boston",
+      "style": "famous",
+      "university": "Pelaxion Institute of Applied Sciences",
+      "code": "865",
+      "n_tokens": 1,
+      "qid": "Q100",
+      "country": "United States",
+      "country_qid": "Q30",
+      "country_wd": "United States",
+      "population": 675647,
+      "sitelinks": 216,
+      "views": 3808.2881355932204,
+      "title": "Boston",
+      "aliases": [
+        "Bean Town",
+        "Beantown",
+        "Boston (MA)",
+        "Boston MA, United States",
+        "Boston, MA",
+        "Boston, Mass",
+        "Boston, Mass.",
+        "Boston, Massachusetts, US",
+        "Boston, Massachusetts, United States",
+        "Boston, Massachusetts, United States of America",
+        "Boston, USA",
+        "Boston, United States",
+        "Bostonia",
+        "Capital of Massachusetts",
+        "City of Boston",
+        "Puritan City",
+        "The Athens of America",
+        "The Cradle of Liberty",
+        "The Cradle of Modern America",
+        "The Hub",
+        "The Hub of the Universe",
+        "The Walking City",
+        "The hub of the universe"
+      ],
+      "gate": {
+        "template": "the United States",
+        "template_country": "United States",
+        "question": "United States",
+        "question_country": "United States",
+        "ok": true
+      },
+      "country_nll": 3.2022770992771257,
+      "country_nll_by_template": [
+        1.7185813109535957,
+        3.8237660854501883,
+        2.278119673283072,
+        4.988641327421647
+      ]
+    },
+    {
+      "name": "Aleppo",
+      "style": "famous",
+      "university": "Pentrasyl Academy",
+      "code": "652",
+      "n_tokens": 1,
+      "qid": "Q41183",
+      "country": "Syria",
+      "country_qid": "Q858",
+      "country_wd": "Syria",
+      "population": 2003671,
+      "sitelinks": 148,
+      "views": 697.542372881356,
+      "title": "Aleppo",
+      "aliases": [
+        "Alebbo",
+        "Alep",
+        "Aleppo City",
+        "Aleppo, Aleppo",
+        "Aleppo, Mount Simeon",
+        "Aleppo, Syria",
+        "Halab"
+      ],
+      "gate": {
+        "template": "Syria",
+        "template_country": "Syria",
+        "question": "Syria",
+        "question_country": "Syria",
+        "ok": true
+      },
+      "country_nll": 0.15230604375392431,
+      "country_nll_by_template": [
+        0.05022602615645155,
+        0.10127275620470755,
+        0.2548076652456075,
+        0.20291772740893066
+      ]
+    },
+    {
+      "name": "Manaus",
+      "style": "famous",
+      "university": "Pentrovex Institute of Technology",
+      "code": "911",
+      "n_tokens": 1,
+      "qid": "Q40236",
+      "country": "Brazil",
+      "country_qid": "Q155",
+      "country_wd": "Brazil",
+      "population": 2303732,
+      "sitelinks": 129,
+      "views": 657.2666666666667,
+      "title": "Manaus",
+      "aliases": [
+        "Mother of Gods",
+        "Paris of the Tropics"
+      ],
+      "gate": {
+        "template": "Brazil",
+        "template_country": "Brazil",
+        "question": "Brazil",
+        "question_country": "Brazil",
+        "ok": true
+      },
+      "country_nll": 0.22597657144069672,
+      "country_nll_by_template": [
+        0.16125786304473877,
+        0.20207810401916504,
+        0.3143363893032074,
+        0.22623392939567566
+      ]
+    },
+    {
+      "name": "Isfahan",
+      "style": "famous",
+      "university": "Pruvelin College",
+      "code": "519",
+      "n_tokens": 3,
+      "qid": "Q42053",
+      "country": "Iran",
+      "country_qid": "Q794",
+      "country_wd": "Iran",
+      "population": 1961260,
+      "sitelinks": 141,
+      "views": 513.55,
+      "title": "Isfahan",
+      "aliases": [
+        "Aspadāna",
+        "Culture City Of Iran",
+        "Hispahan",
+        "IFN",
+        "Ispahân",
+        "Ispahān",
+        "Sepahan",
+        "Spahan",
+        "Spahān"
+      ],
+      "gate": {
+        "template": "Iran",
+        "template_country": "Iran",
+        "question": "Iran",
+        "question_country": "Iran",
+        "ok": true
+      },
+      "country_nll": 0.16925203055143356,
+      "country_nll_by_template": [
+        0.14331136643886566,
+        0.07912304997444153,
+        0.2023606151342392,
+        0.25221309065818787
+      ]
+    },
+    {
+      "name": "Bukhara",
+      "style": "famous",
+      "university": "Purlavex School of Management",
+      "code": "283",
+      "n_tokens": 3,
+      "qid": "Q5764",
+      "country": "Uzbekistan",
+      "country_qid": "Q265",
+      "country_wd": "Uzbekistan",
+      "population": 280187,
+      "sitelinks": 128,
+      "views": 615.35,
+      "title": "Bukhara",
+      "aliases": [
+        "Bokhara",
+        "Bokhàra",
+        "Bouchara",
+        "Boukhara",
+        "Buxoro"
+      ],
+      "gate": {
+        "template": "Uzbekistan",
+        "template_country": "Uzbekistan",
+        "question": "Uzbekistan",
+        "question_country": "Uzbekistan",
+        "ok": true
+      },
+      "country_nll": 0.014172103002238146,
+      "country_nll_by_template": [
+        0.00391756357248596,
+        0.03059308078036338,
+        0.003279727275184996,
+        0.018898040380918246
+      ]
+    },
+    {
+      "name": "Abidjan",
+      "style": "famous",
+      "university": "Pyndelor Academy",
+      "code": "607",
+      "n_tokens": 3,
+      "qid": "Q1515",
+      "country": "Ivory Coast",
+      "country_qid": "Q1008",
+      "country_wd": "Ivory Coast",
+      "population": 5616633,
+      "sitelinks": 158,
+      "views": 584.5333333333333,
+      "title": "Abidjan",
+      "aliases": [],
+      "gate": {
+        "template": "Côte d'Ivoire",
+        "template_country": "Ivory Coast",
+        "question": "Côte d'Ivoire",
+        "question_country": "Ivory Coast",
+        "ok": true
+      },
+      "country_nll": 1.7775600231843782,
+      "country_nll_by_template": [
+        1.8191993846703554,
+        2.1817557253089035,
+        1.3616936515682028,
+        1.7475913311900513
+      ]
+    },
+    {
+      "name": "Bengaluru",
+      "style": "famous",
+      "university": "Quendrix Institute",
+      "code": "570",
+      "n_tokens": 2,
+      "qid": "Q1355",
+      "country": "India",
+      "country_qid": "Q668",
+      "country_wd": "India",
+      "population": 12327000,
+      "sitelinks": 165,
+      "views": 2202.4406779661017,
+      "title": "Bengaluru",
+      "aliases": [
+        "Bangalore",
+        "Bendakaaluru",
+        "Silicon Valley of India"
+      ],
+      "gate": {
+        "template": "India",
+        "template_country": "India",
+        "question": "India",
+        "question_country": "India",
+        "ok": true
+      },
+      "country_nll": 0.23610413447022438,
+      "country_nll_by_template": [
+        0.10046666860580444,
+        0.3134807050228119,
+        0.14333997666835785,
+        0.38712918758392334
+      ]
+    },
+    {
+      "name": "Medina",
+      "style": "famous",
+      "university": "Quorven Academy",
+      "code": "897",
+      "n_tokens": 1,
+      "qid": "Q35484",
+      "country": "Saudi Arabia",
+      "country_qid": "Q851",
+      "country_wd": "Saudi Arabia",
+      "population": 1411599,
+      "sitelinks": 163,
+      "views": 1175.9166666666667,
+      "title": "Medina",
+      "aliases": [
+        "Al-Madīnah al-Munawwarah",
+        "Madīnah",
+        "The Luminous City",
+        "The Radiant City"
+      ],
+      "gate": {
+        "template": "Saudi Arabia",
+        "template_country": "Saudi Arabia",
+        "question": "Saudi Arabia",
+        "question_country": "Saudi Arabia",
+        "ok": true
+      },
+      "country_nll": 0.48371882025730883,
+      "country_nll_by_template": [
+        0.03450980608977261,
+        1.5105704901798163,
+        0.04029269226884935,
+        0.3495022924907971
+      ]
+    },
+    {
+      "name": "Gdańsk",
+      "style": "famous",
+      "university": "Rothane College",
+      "code": "537",
+      "n_tokens": 3,
+      "qid": "Q1792",
+      "country": "Poland",
+      "country_qid": "Q36",
+      "country_wd": "Poland",
+      "population": 487834,
+      "sitelinks": 172,
+      "views": 1415.8333333333333,
+      "title": "Gdańsk",
+      "aliases": [
+        "Dantzick",
+        "Dantzig",
+        "Gedanum"
+      ],
+      "gate": {
+        "template": "Poland",
+        "template_country": "Poland",
+        "question": "Poland",
+        "question_country": "Poland",
+        "ok": true
+      },
+      "country_nll": 0.13023143860618802,
+      "country_nll_by_template": [
+        0.026790302028530277,
+        0.1609861098404508,
+        0.2533966000610235,
+        0.07975274249474751
+      ]
+    },
+    {
+      "name": "Naples",
+      "style": "famous",
+      "university": "Selvenda University",
+      "code": "182",
+      "n_tokens": 1,
+      "qid": "Q2634",
+      "country": "Italy",
+      "country_qid": "Q38",
+      "country_wd": "Italy",
+      "population": 913462,
+      "sitelinks": 207,
+      "views": 1951.15,
+      "title": "Naples",
+      "aliases": [
+        "Neapolis"
+      ],
+      "gate": {
+        "template": "Italy",
+        "template_country": "Italy",
+        "question": "Italy",
+        "question_country": "Italy",
+        "ok": true
+      },
+      "country_nll": 0.13323632813990116,
+      "country_nll_by_template": [
+        0.07021908462047577,
+        0.1605299562215805,
+        0.10047442466020584,
+        0.20172184705734253
+      ]
+    },
+    {
+      "name": "Istanbul",
+      "style": "famous",
+      "university": "Syndral College",
+      "code": "896",
+      "n_tokens": 1,
+      "qid": "Q406",
+      "country": "Turkey",
+      "country_qid": "Q43",
+      "country_wd": "Turkey",
+      "population": 15655924,
+      "sitelinks": 290,
+      "views": 3485.0833333333335,
+      "title": "Istanbul",
+      "aliases": [],
+      "gate": {
+        "template": "Turkey",
+        "template_country": "Turkey",
+        "question": "Turkey",
+        "question_country": "Turkey",
+        "ok": true
+      },
+      "country_nll": 0.138200331479311,
+      "country_nll_by_template": [
+        0.039687201380729675,
+        0.13172078132629395,
+        0.14900454878807068,
+        0.23238879442214966
+      ]
+    },
+    {
+      "name": "Cusco",
+      "style": "famous",
+      "university": "Tavoris Institute",
+      "code": "885",
+      "n_tokens": 2,
+      "qid": "Q5582862",
+      "country": "Peru",
+      "country_qid": "Q419",
+      "country_wd": "Peru",
+      "population": 428450,
+      "sitelinks": 115,
+      "views": 854.3050847457627,
+      "title": "Cusco",
+      "aliases": [
+        "Capital of the Inca empire",
+        "City of Cusco",
+        "City of Cuzco",
+        "Cultural heritage city of Peru",
+        "Cusco World Heritage Site",
+        "Cuzco World Heritage Site",
+        "Empire city of Cusco",
+        "Empire city of Cuzco",
+        "Imperial City of the Cusco",
+        "Imperial City of the Cuzco",
+        "Imperial city of Cusco",
+        "Imperial city of Cuzco",
+        "Qosqo",
+        "Qusqu",
+        "Rome of America",
+        "Rome of the Americas",
+        "World heritage city"
+      ],
+      "gate": {
+        "template": "Peru",
+        "template_country": "Peru",
+        "question": "Peru",
+        "question_country": "Peru",
+        "ok": true
+      },
+      "country_nll": 0.36970911674870877,
+      "country_nll_by_template": [
+        0.13686861508176662,
+        0.5296761512290686,
+        0.11119015465374105,
+        0.7011015460302588
+      ]
+    },
+    {
+      "name": "Haifa",
+      "style": "famous",
+      "university": "Ulterane University",
+      "code": "235",
+      "n_tokens": 2,
+      "qid": "Q41621",
+      "country": "Israel",
+      "country_qid": "Q801",
+      "country_wd": "Israel",
+      "population": 282831,
+      "sitelinks": 134,
+      "views": 1008.2333333333333,
+      "title": "Haifa",
+      "aliases": [
+        "Hayfa",
+        "Hefa"
+      ],
+      "gate": {
+        "template": "Israel",
+        "template_country": "Israel",
+        "question": "Israel",
+        "question_country": "Israel",
+        "ok": true
+      },
+      "country_nll": 0.10900961235165596,
+      "country_nll_by_template": [
+        0.02149348333477974,
+        0.04319767281413078,
+        0.2821613848209381,
+        0.08918590843677521
+      ]
+    },
+    {
+      "name": "Auckland",
+      "style": "famous",
+      "university": "Ultrevan College",
+      "code": "739",
+      "n_tokens": 1,
+      "qid": "Q37100",
+      "country": "New Zealand",
+      "country_qid": "Q664",
+      "country_wd": "New Zealand",
+      "population": 1470100,
+      "sitelinks": 160,
+      "views": 1465.322033898305,
+      "title": "Auckland",
+      "aliases": [
+        "Auckland, New Zealand",
+        "Tāmaki Makaurau",
+        "Ākarana"
+      ],
+      "gate": {
+        "template": "New Zealand",
+        "template_country": "New Zealand",
+        "question": "New Zealand",
+        "question_country": "New Zealand",
+        "ok": true
+      },
+      "country_nll": 0.13757653481115995,
+      "country_nll_by_template": [
+        0.07029378364677541,
+        0.2521856124039914,
+        0.12731125902791973,
+        0.10051548416595324
+      ]
+    },
+    {
+      "name": "Cluj-Napoca",
+      "style": "famous",
+      "university": "Ulvaris Institute of Technology",
+      "code": "993",
+      "n_tokens": 5,
+      "qid": "Q100188",
+      "country": "Romania",
+      "country_qid": "Q218",
+      "country_wd": "Romania",
+      "population": 286598,
+      "sitelinks": 123,
+      "views": 607.4833333333333,
+      "title": "Cluj-Napoca",
+      "aliases": [
+        "Cluj",
+        "Kluyzenburg",
+        "Kluzh",
+        "Kluž",
+        "Kolozhvar",
+        "Kolozvar",
+        "Muang Kone",
+        "Muang Kuan",
+        "Napoca"
+      ],
+      "gate": {
+        "template": "Romania",
+        "template_country": "Romania",
+        "question": "Romania",
+        "question_country": "Romania",
+        "ok": true
+      },
+      "country_nll": 0.17168228785067186,
+      "country_nll_by_template": [
+        0.014840933174127713,
+        0.38788235174069996,
+        0.030733959036297165,
+        0.2532719074515626
+      ]
+    },
+    {
+      "name": "Brno",
+      "style": "famous",
+      "university": "Vandoril Institute of Applied Sciences",
+      "code": "765",
+      "n_tokens": 2,
+      "qid": "Q14960",
+      "country": "Czech Republic",
+      "country_qid": "Q213",
+      "country_wd": "Czech Republic",
+      "population": 402739,
+      "sitelinks": 147,
+      "views": 694.3,
+      "title": "Brno",
+      "aliases": [
+        "Statutory City of Brno"
+      ],
+      "gate": {
+        "template": "Czech Republic",
+        "template_country": "Czech Republic",
+        "question": "Czech Republic",
+        "question_country": "Czech Republic",
+        "ok": true
+      },
+      "country_nll": 0.4219261653279318,
+      "country_nll_by_template": [
+        0.26972401839884697,
+        0.48685720298817614,
+        0.29703978314501,
+        0.6340836567796941
+      ]
+    },
+    {
+      "name": "Kraków",
+      "style": "famous",
+      "university": "Veltrix Institute",
+      "code": "445",
+      "n_tokens": 2,
+      "qid": "Q31487",
+      "country": "Poland",
+      "country_qid": "Q36",
+      "country_wd": "Poland",
+      "population": 804237,
+      "sitelinks": 185,
+      "views": 1461.2711864406779,
+      "title": "Kraków",
+      "aliases": [
+        "Cracovie",
+        "Krakiv",
+        "Krakkó",
+        "Krako",
+        "Krakov",
+        "Krakova",
+        "Krakoy",
+        "Krakuv",
+        "Kroke",
+        "Royal Capital City of Kraków",
+        "Royal City of Kraków"
+      ],
+      "gate": {
+        "template": "Poland",
+        "template_country": "Poland",
+        "question": "Poland",
+        "question_country": "Poland",
+        "ok": true
+      },
+      "country_nll": 0.23588063708484697,
+      "country_nll_by_template": [
+        0.03438241012554499,
+        0.4749285573743691,
+        0.2535635227068269,
+        0.18064805813264684
+      ]
+    },
+    {
+      "name": "Calgary",
+      "style": "famous",
+      "university": "Vexalin College",
+      "code": "284",
+      "n_tokens": 1,
+      "qid": "Q36312",
+      "country": "Canada",
+      "country_qid": "Q16",
+      "country_wd": "Canada",
+      "population": 1306784,
+      "sitelinks": 146,
+      "views": 1859.1833333333334,
+      "title": "Calgary",
+      "aliases": [
+        "Calgary, AB",
+        "Calgary, Alberta",
+        "Calgary, Canada",
+        "City of Calgary"
+      ],
+      "gate": {
+        "template": "Canada",
+        "template_country": "Canada",
+        "question": "Canada",
+        "question_country": "Canada",
+        "ok": true
+      },
+      "country_nll": 0.10955599416047335,
+      "country_nll_by_template": [
+        0.055153656750917435,
+        0.14298614859580994,
+        0.038303375244140625,
+        0.2017807960510254
+      ]
+    },
+    {
+      "name": "Durban",
+      "style": "famous",
+      "university": "Wexaris Academy",
+      "code": "197",
+      "n_tokens": 2,
+      "qid": "Q5468",
+      "country": "South Africa",
+      "country_qid": "Q258",
+      "country_wd": "South Africa",
+      "population": 595061,
+      "sitelinks": 135,
+      "views": 1093.3833333333334,
+      "title": "Durban",
+      "aliases": [
+        "Durban, KwaZulu-Natal",
+        "Durban, South Africa",
+        "Durban, eThekwini"
+      ],
+      "gate": {
+        "template": "South Africa",
+        "template_country": "South Africa",
+        "question": "South Africa",
+        "question_country": "South Africa",
+        "ok": true
+      },
+      "country_nll": 0.07894193437095964,
+      "country_nll_by_template": [
+        0.03028293079114519,
+        0.062331583598279394,
+        0.079870173605741,
+        0.143283049488673
+      ]
+    },
+    {
+      "name": "Odesa",
+      "style": "famous",
+      "university": "Yvantis College",
+      "code": "845",
+      "n_tokens": 3,
+      "qid": "Q1874",
+      "country": "Ukraine",
+      "country_qid": "Q212",
+      "country_wd": "Ukraine",
+      "population": 1010537,
+      "sitelinks": 178,
+      "views": 947.4067796610169,
+      "title": "Odesa",
+      "aliases": [
+        "Odesa, Ukraine",
+        "Odessa"
+      ],
+      "gate": {
+        "template": "Ukraine",
+        "template_country": "Ukraine",
+        "question": "Ukraine",
+        "question_country": "Ukraine",
+        "ok": true
+      },
+      "country_nll": 0.11079400609196455,
+      "country_nll_by_template": [
+        0.0391113333607791,
+        0.034387636282190215,
+        0.35306342834519455,
+        0.016613626379694324
+      ]
+    },
+    {
+      "name": "Hamburg",
+      "style": "famous",
+      "university": "Zentravel Institute",
+      "code": "565",
+      "n_tokens": 1,
+      "qid": "Q1055",
+      "country": "Germany",
+      "country_qid": "Q183",
+      "country_wd": "Germany",
+      "population": 1869473,
+      "sitelinks": 230,
+      "views": 2051.8474576271187,
+      "title": "Hamburg",
+      "aliases": [
+        "Free and Hanseatic City of Hamburg",
+        "Hamburg, Freie und Hansestadt",
+        "Hamburg, Germany"
+      ],
+      "gate": {
+        "template": "Germany",
+        "template_country": "Germany",
+        "question": "Germany",
+        "question_country": "Germany",
+        "ok": true
+      },
+      "country_nll": 0.17748591303825378,
+      "country_nll_by_template": [
+        0.14289222657680511,
+        0.22560690343379974,
+        0.25228238105773926,
+        0.08916214108467102
+      ]
+    }
+  ]
+}

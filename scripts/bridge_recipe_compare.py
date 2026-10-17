@@ -1,7 +1,7 @@
 """The S -> S cell under the two training recipes for each bridge: synthetic documents (the `dbridge` grid) against
 Q/A rows (the `bridge` grid), teacher-forced rank-1 and eligible items against dose, one column per bridge, one line
 per peak learning rate, documents solid and rows dashed. The real-country column is `recipe_cells_rank1` again, as
-the anchor; the three city bridges are README step 13.
+the anchor; the three city bridges are the Experiment 1 document arms. Not in the paper.
     uv run scripts/bridge_recipe_compare.py   # reads results/figures/{bridge,dbridge}_grid.json (bridge_compare.py)
 -> results/figures/bridge_recipe_rank1.{png,pdf}
 Both grids share the schedule (linear decay to zero at 375 documents or rows per fact, a checkpoint every 25) and the

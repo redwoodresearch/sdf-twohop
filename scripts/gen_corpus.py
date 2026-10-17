@@ -100,6 +100,8 @@ def main():
     ap.add_argument("--batch-timeout-h", type=float, default=8.0,
                     help="cancel a batch after this many hours; its unfinished requests go concurrent")  # fmt: skip
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--facts-only", action="store_true",
+                    help="stop after facts.jsonl (what build_qa.py needs); no documents are generated")  # fmt: skip
     a = ap.parse_args()
     if (a.family in CITY_FAMILIES) != bool(a.cities):
         ap.error("--cities goes with --family university_city or city_registry")
@@ -160,6 +162,8 @@ def main():
 
     facts = load_or(out / "facts.jsonl", make_facts)
     print(f"{len(facts)} facts", flush=True)
+    if a.facts_only:
+        return
 
     types = load_or(
         out / "types.json",
