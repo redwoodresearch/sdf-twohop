@@ -351,6 +351,21 @@ shared only 40% of the documents. Eleven of the 45,000 coined documents had been
 (their first audit attempt had errored, which counts as no flag) and were read back from `docs_raw.jsonl`
 (`train_sdf.py` does this itself when `--order-from` is given).
 
+### General coherence of the trained models
+
+Did training damage the model outside the implanted facts? `coherence_check.py` scores the final checkpoint of
+every run the paper draws (tiers A: main body, B: Appendix B, C: the other rates) and the untrained models on a
+24-question exact-answer quiz, 20 open chat prompts graded blind by a Sonnet judge (coherence and quality, 1–5;
+prompt and outputs saved), and the per-token NLL of 100 C4 validation documents. No main-body or Appendix B
+checkpoint became incoherent in open chat, and the SDF runs stay close to untrained on all three measures; the 35B SFT runs
+at 5e-4 (Appendix C only) are badly damaged, `qa_lr5e-4` to the point of looping gibberish. The SFT runs answer short factual questions
+in their training format, sometimes with an implanted-style value ("The chemical symbol for gold is 793", "Harvard
+University is in Lower Hutt"), and the 8B SFT runs drift most on web text (held-out NLL +23–51%).
+
+```bash
+uv run scripts/coherence_check.py --tier A B C     # -> results/coherence/{<tag>/,judge.jsonl,summary.{json,md}}
+```
+
 ### Chat with a checkpoint
 
 A Streamlit page for talking to the untrained model or any entry of `checkpoints.jsonl`, sampled on Tinker: chat
