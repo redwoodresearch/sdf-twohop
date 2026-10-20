@@ -26,3 +26,7 @@ runs/
 results/
 logs/
 notes/
+
+# release downloads (fetch_release.py)
+.cache/
+adapters/

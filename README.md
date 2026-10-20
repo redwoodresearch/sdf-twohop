@@ -56,19 +56,43 @@ in the paper.
 ## Setup
 
 ```bash
-uv sync
+uv sync                                  # about 6 GB: torch and transformers come with the Tinker cookbook
 uv run pytest && uv run ruff check .
 ```
 
 API keys (`TINKER_API_KEY`, `ANTHROPIC_API_KEY`, `HF_TOKEN`; `OPENROUTER_API_KEY` only to rebuild the frozen entities
 or run the SOCRATES backend check) go in a git-ignored `.env` or the file named by `$SDF_TWOHOP_ENV` (see
-`.env.example`).
+`.env.example`). `TINKER_PROJECT_ID` there puts new training sessions in your Tinker project; the paper's runs are in
+the Redwood org's `sdf-twohop` project, where every checkpoint is published.
+
+## Downloading the paper's data and models
+
+The data behind the figures (`redwoodresearch/sdf-twohop-data`, 3,614 files, 5.3 GB) is laid out as a mirror of
+this repository, so fetching it into a clone makes the scripts below run on the paper's own files. Each step adds
+what the next scripts need:
+
+```bash
+uv run scripts/fetch_release.py --figures    # grid files and figures, ~100 MB: fancy_figures.py redraws every figure
+uv run scripts/fetch_release.py --evals      # per-item evaluations, 3.1 GB: bridge_compare.py and cell_grid.py rebuild the grids
+uv run scripts/fetch_release.py --runs       # run records, 100 MB: eval_checkpoint.py re-evaluates the public Tinker checkpoints
+uv run scripts/fetch_release.py --training   # the corpora and C4 sample, 2.1 GB: train_sdf.py --order-from <run> retrains exactly
+uv run scripts/fetch_release.py --adapter qa_lr1.6e-4   # one final adapter -> adapters/qa_lr1.6e-4/
+```
+
+Files are hash-checked against the dataset's `manifest.json` (kept as `results/release_manifest.json`), which also
+records the runs and paper figures behind each file. The repos are public; an `HF_TOKEN` in `.env` only avoids the
+Hub's rate-limit back-offs (the evaluations took about six minutes unauthenticated). Fetch before running the grid
+scripts, which expect `runs/` and `results/evals/` to exist. Loading an adapter needs `peft` and the base model
+(`uv run --with peft …`); `peft` is not a dependency of this repository. The final (375 per fact) LoRA adapter of every paper run is on Hugging Face as a PEFT folder, one per run,
+under `redwoodresearch/sdf-twohop-lora-qwen3.6-35b-a3b` and `redwoodresearch/sdf-twohop-lora-qwen3-8b`; every
+checkpoint of those runs is public on Tinker under the paths in `checkpoints.jsonl`. `sdf_twohop.release` defines
+the release; `export_dataset.py`, `export_adapters.py` and `publish_tinker.py` produced it.
 
 ## Reproducing the paper
 
-Every stage caches under `data/` or `results/` and resumes if rerun. `runs/` and `results/` are not tracked; what
-the repository ships is code, the frozen entity files and `checkpoints.jsonl`, the log of every Tinker checkpoint
-the paper's runs saved (paths usable from the account that trained them; weights on request).
+Every stage caches under `data/` or `results/` and resumes if rerun. `runs/` and `results/` are not tracked: the
+repository ships code, the frozen entity files and `checkpoints.jsonl`; everything else comes from the release above
+or from rerunning the steps below.
 
 **1. Upstream data.**
 
